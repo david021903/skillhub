@@ -1,61 +1,52 @@
-export interface User {
-  id: string;
-  email: string | null;
-  password_hash: string | null;
-  email_verified: boolean;
-  first_name: string | null;
-  last_name: string | null;
-  profile_image_url: string | null;
-  handle: string | null;
-  bio: string | null;
-  openai_api_key: string | null;
-  is_admin: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { sql, relations } from "drizzle-orm";
+import { index, jsonb, pgTable, timestamp, varchar, uuid, boolean } from "drizzle-orm/pg-core";
 
-export type UpsertUser = Partial<User> & { id?: string };
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)]
+);
 
-export interface AuthIdentity {
-  id: string;
-  user_id: string;
-  provider: string;
-  provider_user_id: string;
-  provider_data: Record<string, any> | null;
-  created_at: string;
-}
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  handle: varchar("handle").unique(),
+  bio: varchar("bio"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
-export interface PasswordResetToken {
-  id: string;
-  user_id: string;
-  token: string;
-  expires_at: string;
-  used_at: string | null;
-  created_at: string;
-}
+export const apiTokens = pgTable("api_tokens", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 100 }).notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  scopes: jsonb("scopes").$type<string[]>().default(["read", "write"]),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  isRevoked: boolean("is_revoked").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("api_tokens_user_idx").on(table.userId),
+  index("api_tokens_token_idx").on(table.token),
+]);
 
-export interface EmailVerificationToken {
-  id: string;
-  user_id: string;
-  token: string;
-  expires_at: string;
-  used_at: string | null;
-  created_at: string;
-}
+export const usersRelations = relations(users, ({ many }) => ({
+  tokens: many(apiTokens),
+}));
 
-export interface ApiToken {
-  id: string;
-  user_id: string;
-  name: string;
-  token: string;
-  scopes: string[];
-  last_used_at: string | null;
-  expires_at: string | null;
-  is_revoked: boolean;
-  created_at: string;
-}
+export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
+  user: one(users, { fields: [apiTokens.userId], references: [users.id] }),
+}));
 
-export type InsertApiToken = Omit<ApiToken, "id" | "created_at" | "is_revoked"> & {
-  id?: string;
-  is_revoked?: boolean;
-};
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type ApiToken = typeof apiTokens.$inferSelect;
+export type InsertApiToken = typeof apiTokens.$inferInsert;

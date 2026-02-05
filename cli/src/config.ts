@@ -12,9 +12,9 @@ interface ConfigSchema {
 }
 
 export const config = new Conf<ConfigSchema>({
-  projectName: "shsc",
+  projectName: "skillbook-cli",
   defaults: {
-    apiUrl: "https://skillhub.space",
+    apiUrl: "https://skillbook.replit.app",
   },
 });
 
@@ -45,11 +45,4 @@ export function getUser(): ConfigSchema["user"] | undefined {
 
 export function setUser(user: ConfigSchema["user"]): void {
   config.set("user", user);
-}
-
-export function getConfig(): { token?: string; apiUrl: string } {
-  return {
-    token: config.get("token"),
-    apiUrl: config.get("apiUrl"),
-  };
 }

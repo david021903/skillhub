@@ -12,7 +12,7 @@ export default function MySkills() {
   const { data: skills = [], isLoading, error, refetch } = useQuery({
     queryKey: ["/api/my-skills"],
     queryFn: async () => {
-      const res = await fetch("/api/my-skills", { credentials: "include" });
+      const res = await fetch("/api/my-skills");
       if (!res.ok) throw new Error("Failed to fetch skills");
       return res.json();
     },

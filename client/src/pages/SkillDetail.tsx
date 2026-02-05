@@ -7,22 +7,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SkillBadges, ValidationScore } from "@/components/SkillBadges";
 import { DependencyGraph } from "@/components/DependencyGraph";
 import { ActivityFeed } from "@/components/ActivityFeed";
-import { SkillExplainer } from "@/components/SkillExplainer";
-import { SkillChat } from "@/components/SkillChat";
-import { SkillComments } from "@/components/SkillComments";
-import { SkillTabs } from "@/components/SkillTabs";
-import { CopyButton } from "@/components/CopyButton";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Star, Copy, ExternalLink, AlertCircle, RefreshCw, Github, GitFork, ArrowLeft, ChevronDown, CheckCircle2, AlertTriangle, XCircle, MinusCircle } from "lucide-react";
-import { useState } from "react";
+import { Star, Download, Copy, ExternalLink, Clock, AlertCircle, RefreshCw, Github } from "lucide-react";
 
 export default function SkillDetail() {
   const [, params] = useRoute("/skills/:owner/:slug");
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showHealthDetails, setShowHealthDetails] = useState(false);
 
   const { data: skill, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/skills", params?.owner, params?.slug],
@@ -37,7 +30,7 @@ export default function SkillDetail() {
   const { data: starStatus } = useQuery({
     queryKey: ["/api/skills", skill?.id, "starred"],
     queryFn: async () => {
-      const res = await fetch(`/api/skills/${skill?.id}/starred`, { credentials: "include" });
+      const res = await fetch(`/api/skills/${skill?.id}/starred`);
       return res.json();
     },
     enabled: !!skill?.id && !!user,
@@ -45,7 +38,7 @@ export default function SkillDetail() {
 
   const starMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/skills/${skill?.id}/star`, { method: "POST", credentials: "include" });
+      const res = await fetch(`/api/skills/${skill?.id}/star`, { method: "POST" });
       return res.json();
     },
     onSuccess: () => {
@@ -56,7 +49,7 @@ export default function SkillDetail() {
 
   const copyInstall = () => {
     const version = skill?.versions?.[0]?.version || "latest";
-    navigator.clipboard.writeText(`shsc install ${params?.owner}/${params?.slug}@${version}`);
+    navigator.clipboard.writeText(`skillbook install ${params?.owner}/${params?.slug}@${version}`);
     toast({ title: "Copied!", description: "Install command copied to clipboard" });
   };
 
@@ -108,25 +101,12 @@ export default function SkillDetail() {
 
   const latestVersion = skill.versions?.[0];
   const latestValidation = latestVersion?.validations?.[0];
-  const isOfficial = skill.owner?.handle === "skillhub";
-  const ownerName = isOfficial
-    ? "SkillHub"
-    : skill.owner?.firstName 
-      ? `${skill.owner.firstName} ${skill.owner.lastName || ""}`.trim()
-      : skill.owner?.handle || "Unknown";
+  const ownerName = skill.owner?.firstName 
+    ? `${skill.owner.firstName} ${skill.owner.lastName || ""}`.trim()
+    : skill.owner?.handle || "Unknown";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="gap-2 mb-2" 
-        onClick={() => window.history.back()}
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </Button>
-      
       <div className="flex flex-col md:flex-row gap-6 items-start">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
@@ -209,62 +189,12 @@ export default function SkillDetail() {
       
       {latestValidation && latestValidation.score > 0 && (
         <Card>
-          <button
-            className="w-full text-left"
-            onClick={() => setShowHealthDetails(!showHealthDetails)}
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Health Score</CardTitle>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showHealthDetails ? "rotate-180" : ""}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ValidationScore score={
-                latestValidation.checks && (latestValidation.checks as any[]).length > 0
-                  ? Math.round(((latestValidation.checks as any[]).filter((c: any) => c.status === "passed").length / (latestValidation.checks as any[]).length) * 100)
-                  : latestValidation.score
-              } />
-            </CardContent>
-          </button>
-          {showHealthDetails && latestValidation.checks && (() => {
-            const checks = latestValidation.checks as Array<{ id: string; category: string; status: string; message?: string }>;
-            const statusOrder: Record<string, number> = { failed: 0, warning: 1, skipped: 2, passed: 3 };
-            const sorted = [...checks].sort((a, b) => (statusOrder[a.status] ?? 2) - (statusOrder[b.status] ?? 2));
-            const passed = checks.filter(c => c.status === "passed").length;
-            const warnings = checks.filter(c => c.status === "warning").length;
-            const failed = checks.filter(c => c.status === "failed").length;
-            return (
-              <CardContent className="pt-0 border-t">
-                <div className="flex gap-4 text-xs text-muted-foreground pt-3 pb-2">
-                  <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" />{passed} passed</span>
-                  {warnings > 0 && <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-yellow-500" />{warnings} warnings</span>}
-                  {failed > 0 && <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-red-500" />{failed} failed</span>}
-                </div>
-                <div className="space-y-2">
-                  {sorted.map((check) => (
-                    <div key={check.id} className="flex items-start gap-2 text-sm">
-                      {check.status === "passed" ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                      ) : check.status === "warning" ? (
-                        <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
-                      ) : check.status === "failed" ? (
-                        <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                      ) : (
-                        <MinusCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                      )}
-                      <div className="flex-1">
-                        <span className={check.status === "passed" ? "text-muted-foreground" : check.status === "failed" ? "text-red-400" : check.status === "warning" ? "text-yellow-400" : ""}>
-                          {check.message || check.id}
-                        </span>
-                        <span className="ml-2 text-xs text-muted-foreground/60">{check.category}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            );
-          })()}
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Health Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ValidationScore score={latestValidation.score} />
+          </CardContent>
         </Card>
       )}
 
@@ -273,44 +203,61 @@ export default function SkillDetail() {
           <CardTitle>Install</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between bg-muted p-4 rounded-lg">
-            <code className="font-mono text-sm">
-              shsc install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
-            </code>
-            <CopyButton text={`shsc install ${params?.owner}/${params?.slug}@${latestVersion?.version || "latest"}`} />
-          </div>
+          <code className="block bg-muted p-4 rounded-lg font-mono text-sm">
+            skillbook install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
+          </code>
         </CardContent>
       </Card>
 
-      {skill.forkedFromId && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <GitFork className="h-4 w-4" />
-          <span>Forked from another skill</span>
-        </div>
+      {skill.versions && skill.versions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Versions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {skill.versions.map((version: any) => (
+                <div
+                  key={version.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono font-medium">{version.version}</span>
+                    {version.isLatest && <Badge variant="default">Latest</Badge>}
+                    {version.isYanked && <Badge variant="destructive">Yanked</Badge>}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    {new Date(version.publishedAt).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
-
-      <SkillTabs skill={skill} owner={params?.owner || ""} slug={params?.slug || ""} />
 
       <DependencyGraph dependencies={skill.dependencies} skillName={skill.name} />
-
-      {latestVersion?.skillMd && (
-        <SkillExplainer skillMd={latestVersion.skillMd} />
-      )}
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           {latestVersion?.skillMd && (
-            <SkillChat skillMd={latestVersion.skillMd} skillName={skill.name} />
+            <Card>
+              <CardHeader>
+                <CardTitle>SKILL.md</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm whitespace-pre-wrap">
+                  {latestVersion.skillMd}
+                </pre>
+              </CardContent>
+            </Card>
           )}
         </div>
         
         <div className="space-y-6">
           <ActivityFeed skillId={skill.id} />
         </div>
-      </div>
-      
-      <div className="mt-8">
-        <SkillComments skillId={skill.id} currentUserId={user?.id} />
       </div>
     </div>
   );

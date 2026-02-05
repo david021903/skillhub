@@ -18,7 +18,8 @@ interface ValidationResult {
 
 export function validateCommands(program: Command) {
   program
-    .command("validate")
+    .command("check")
+    .alias("validate")
     .description("Validate the current skill before publishing")
     .option("-f, --file <path>", "Path to SKILL.md", "SKILL.md")
     .option("--json", "Output as JSON")
@@ -35,9 +36,9 @@ export function validateCommands(program: Command) {
       const spinner = ora("Validating skill...").start();
       const { data, error } = await post<ValidationResult>("/api/cli/validate", { skillMd });
 
-      if (error || !data) {
+      if (error) {
         spinner.fail("Validation failed");
-        console.log(chalk.red(`Error: ${error || "No data returned"}`));
+        console.log(chalk.red(`Error: ${error}`));
         process.exit(1);
       }
 
@@ -50,17 +51,16 @@ export function validateCommands(program: Command) {
 
       console.log();
       
-      if (data.passed) {
-        console.log(chalk.green.bold("✓ Validation PASSED") + chalk.gray(` (${data.score}%)`));
+      if (data!.passed) {
+        console.log(chalk.green.bold("✓ Validation PASSED") + chalk.gray(` (${data!.score}%)`));
       } else {
-        console.log(chalk.red.bold("✗ Validation FAILED") + chalk.gray(` (${data.score}%)`));
+        console.log(chalk.red.bold("✗ Validation FAILED") + chalk.gray(` (${data!.score}%)`));
       }
 
       console.log();
 
-      type CheckType = typeof data.checks[number];
-      const categories = new Map<string, CheckType[]>();
-      for (const check of data.checks) {
+      const categories = new Map<string, typeof data.checks>();
+      for (const check of data!.checks) {
         if (!categories.has(check.category)) {
           categories.set(check.category, []);
         }

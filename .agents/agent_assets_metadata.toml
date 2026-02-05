@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "uvIPE7JDuqHF79Nr_6mA3"
+uri = "file://skillhub-clean.zip"
+type = "unspecified"
+title = "SkillHub - Clean Project Source (375 KB)"

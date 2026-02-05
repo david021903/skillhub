@@ -20,7 +20,7 @@ export function authCommands(program: Command) {
 
   auth
     .command("login")
-    .description("Authenticate with SkillHub")
+    .description("Authenticate with SkillBook")
     .option("--token <token>", "Use a personal access token")
     .option("--api-url <url>", "Set custom API URL")
     .action(async (options) => {
@@ -71,7 +71,7 @@ export function authCommands(program: Command) {
 
   auth
     .command("logout")
-    .description("Sign out of SkillHub")
+    .description("Sign out of SkillBook")
     .action(() => {
       clearToken();
       console.log(chalk.green("Logged out successfully"));
@@ -85,7 +85,7 @@ export function authCommands(program: Command) {
       
       if (!token) {
         console.log(chalk.yellow("Not logged in"));
-        console.log(chalk.gray("Run `shsc auth login` to authenticate"));
+        console.log(chalk.gray("Run `skillbook auth login` to authenticate"));
         return;
       }
 
@@ -94,7 +94,7 @@ export function authCommands(program: Command) {
 
       if (error) {
         spinner.fail("Token invalid or expired");
-        console.log(chalk.gray("Run `shsc auth login` to re-authenticate"));
+        console.log(chalk.gray("Run `skillbook auth login` to re-authenticate"));
         return;
       }
 

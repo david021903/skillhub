@@ -16,79 +16,12 @@ interface PublishResponse {
   };
 }
 
-interface FileInfo {
-  path: string;
-  content: string;
-  size: number;
-  isBinary: boolean;
-}
-
 interface InstallResponse {
   skill: { name: string; slug: string; owner: string };
   version: string;
   skillMd: string;
   manifest: Record<string, unknown>;
   readme?: string;
-  files?: FileInfo[];
-}
-
-const IGNORED_FILES = [
-  ".git",
-  ".gitignore",
-  "node_modules",
-  ".DS_Store",
-  "Thumbs.db",
-  ".env",
-  ".env.local",
-  ".skillignore",
-  "SKILL.md",
-  "README.md",
-];
-
-const IGNORED_EXTENSIONS = [".pyc", ".pyo", ".class", ".o", ".a", ".so", ".dll", ".exe"];
-
-function shouldIgnoreFile(filePath: string): boolean {
-  const name = path.basename(filePath);
-  if (IGNORED_FILES.includes(name)) return true;
-  if (filePath.includes("node_modules/") || filePath.includes(".git/")) return true;
-  if (IGNORED_EXTENSIONS.some(ext => name.endsWith(ext))) return true;
-  
-  const skillignorePath = path.join(process.cwd(), ".skillignore");
-  if (fs.existsSync(skillignorePath)) {
-    const patterns = fs.readFileSync(skillignorePath, "utf-8").split("\n").filter(l => l.trim() && !l.startsWith("#"));
-    for (const pattern of patterns) {
-      if (filePath.includes(pattern.trim())) return true;
-    }
-  }
-  return false;
-}
-
-function collectFiles(dir: string, base: string = ""): Array<{path: string; content: string}> {
-  const results: Array<{path: string; content: string}> = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    const relativePath = base ? `${base}/${entry.name}` : entry.name;
-    
-    if (shouldIgnoreFile(relativePath)) continue;
-    
-    if (entry.isDirectory()) {
-      results.push(...collectFiles(fullPath, relativePath));
-    } else if (entry.isFile()) {
-      try {
-        const content = fs.readFileSync(fullPath, "utf-8");
-        const isBinary = /[\x00-\x08\x0E-\x1F\x7F-\xFF]/.test(content.slice(0, 1000));
-        if (!isBinary && content.length < 1024 * 1024) {
-          results.push({ path: relativePath, content });
-        }
-      } catch (e) {
-        // Skip files that can't be read as text
-      }
-    }
-  }
-  
-  return results;
 }
 
 export function skillCommands(program: Command) {
@@ -145,23 +78,23 @@ List any requirements or dependencies.
       fs.writeFileSync(skillMdPath, template);
       console.log(chalk.green("Created SKILL.md"));
       console.log(chalk.gray("\nEdit the file, then run:"));
-      console.log(chalk.cyan(`  shsc publish`));
+      console.log(chalk.cyan(`  skillbook publish`));
     });
 
   program
     .command("publish")
-    .description("Publish the current skill to SkillHub")
+    .description("Publish the current skill to SkillBook")
     .option("-v, --version <version>", "Version to publish")
     .option("-m, --message <message>", "Changelog message")
     .action(async (options) => {
       if (!getToken()) {
-        console.log(chalk.red("Not logged in. Run `shsc auth login` first."));
+        console.log(chalk.red("Not logged in. Run `skillbook auth login` first."));
         process.exit(1);
       }
 
       const user = getUser();
       if (!user) {
-        console.log(chalk.red("User info not found. Run `shsc auth login` first."));
+        console.log(chalk.red("User info not found. Run `skillbook auth login` first."));
         process.exit(1);
       }
 
@@ -169,7 +102,7 @@ List any requirements or dependencies.
       
       if (!fs.existsSync(skillMdPath)) {
         console.log(chalk.red("SKILL.md not found in current directory"));
-        console.log(chalk.gray("Run `shsc init` to create one"));
+        console.log(chalk.gray("Run `skillbook init` to create one"));
         process.exit(1);
       }
 
@@ -193,18 +126,10 @@ List any requirements or dependencies.
 
       console.log(chalk.cyan(`\nPublishing ${chalk.bold(name)} v${version}...`));
       
-      const spinner = ora("Collecting files...").start();
+      const spinner = ora("Uploading and validating...").start();
 
       const readmePath = path.join(process.cwd(), "README.md");
       const readme = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, "utf-8") : undefined;
-
-      // Collect additional files from the directory
-      const additionalFiles = collectFiles(process.cwd());
-      if (additionalFiles.length > 0) {
-        spinner.text = `Uploading ${additionalFiles.length + 1} files...`;
-      } else {
-        spinner.text = "Uploading and validating...";
-      }
 
       const { data, error } = await post<PublishResponse>(
         `/api/cli/skills/${user.handle}/${slug}/publish`,
@@ -213,7 +138,6 @@ List any requirements or dependencies.
           skillMd,
           readme,
           changelog: options.message,
-          files: additionalFiles,
         }
       );
 
@@ -240,7 +164,7 @@ List any requirements or dependencies.
         }
       }
 
-      console.log(chalk.gray(`\n  Install with: shsc install ${data!.skill.owner}/${data!.skill.slug}`));
+      console.log(chalk.gray(`\n  Install with: skillbook install ${data!.skill.owner}/${data!.skill.slug}`));
     });
 
   program
@@ -279,38 +203,8 @@ List any requirements or dependencies.
         fs.writeFileSync(path.join(outputDir, "README.md"), data!.readme);
       }
 
-      // Save additional files with path traversal protection
-      let fileCount = 1;
-      if (data!.files && data!.files.length > 0) {
-        for (const file of data!.files) {
-          if (file.path && file.content && !file.isBinary) {
-            // Normalize and validate path to prevent traversal attacks
-            const normalizedPath = path.normalize(file.path).replace(/^(\.\.(\/|\\|$))+/, '');
-            if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
-              console.log(chalk.yellow(`  Skipping unsafe path: ${file.path}`));
-              continue;
-            }
-            const filePath = path.join(outputDir, normalizedPath);
-            // Ensure the resolved path is within outputDir
-            const resolvedPath = path.resolve(filePath);
-            const resolvedOutputDir = path.resolve(outputDir);
-            if (!resolvedPath.startsWith(resolvedOutputDir + path.sep)) {
-              console.log(chalk.yellow(`  Skipping unsafe path: ${file.path}`));
-              continue;
-            }
-            const fileDir = path.dirname(filePath);
-            fs.mkdirSync(fileDir, { recursive: true });
-            fs.writeFileSync(filePath, file.content);
-            fileCount++;
-          }
-        }
-      }
-
       spinner.succeed(`Installed ${chalk.bold(data!.skill.name)} v${data!.version}`);
       console.log(chalk.gray(`  Location: ${outputDir}`));
-      if (fileCount > 1) {
-        console.log(chalk.gray(`  Files: ${fileCount}`));
-      }
     });
 
   program
@@ -351,7 +245,7 @@ List any requirements or dependencies.
         console.log(`  ${chalk.bold("Tags:")} ${data.tags.join(", ")}`);
       }
       console.log();
-      console.log(chalk.gray(`Install: shsc install ${owner}/${slug}`));
+      console.log(chalk.gray(`Install: skillbook install ${owner}/${slug}`));
     });
 
   program
@@ -359,7 +253,7 @@ List any requirements or dependencies.
     .description("List your published skills")
     .action(async () => {
       if (!getToken()) {
-        console.log(chalk.red("Not logged in. Run `shsc auth login` first."));
+        console.log(chalk.red("Not logged in. Run `skillbook auth login` first."));
         process.exit(1);
       }
 
@@ -376,7 +270,7 @@ List any requirements or dependencies.
 
       if (!data?.length) {
         console.log(chalk.yellow("You haven't published any skills yet."));
-        console.log(chalk.gray("Run `shsc init` to create your first skill."));
+        console.log(chalk.gray("Run `skillbook init` to create your first skill."));
         return;
       }
 
@@ -394,7 +288,7 @@ List any requirements or dependencies.
     .description("Star a skill")
     .action(async (skill) => {
       if (!getToken()) {
-        console.log(chalk.red("Not logged in. Run `shsc auth login` first."));
+        console.log(chalk.red("Not logged in. Run `skillbook auth login` first."));
         process.exit(1);
       }
 

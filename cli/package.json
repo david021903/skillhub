@@ -1,22 +1,17 @@
 {
-  "name": "shsc",
+  "name": "skillbook-cli",
   "version": "1.0.0",
-  "description": "SkillHub CLI - Manage OpenClaw skills from the command line",
+  "description": "SkillBook CLI - Manage OpenClaw skills from the command line",
   "main": "dist/index.js",
   "bin": {
-    "shsc": "./dist/index.js"
+    "skillbook": "./dist/index.js",
+    "sb": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts"
   },
-  "keywords": [
-    "openclaw",
-    "skills",
-    "ai",
-    "agent",
-    "cli"
-  ],
+  "keywords": ["openclaw", "skills", "ai", "agent", "cli"],
   "author": "",
   "license": "MIT",
   "dependencies": {

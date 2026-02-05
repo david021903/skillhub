@@ -3,13 +3,6 @@ export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,ts,jsx,tsx}"],
   theme: {
-    container: {
-      center: true,
-      padding: "1rem",
-      screens: {
-        "2xl": "1400px",
-      },
-    },
     extend: {
       borderRadius: {
         lg: "var(--radius)",
@@ -53,5 +46,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [require("tailwindcss-animate")],
 };

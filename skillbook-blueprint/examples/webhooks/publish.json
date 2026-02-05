@@ -1,0 +1,19 @@
+{
+  "id": "wh_8e0e09841f140e5c",
+  "type": "publish",
+  "created_at": "2026-02-05T01:28:34Z",
+  "actor": {
+    "id": "usr_123",
+    "handle": "omer"
+  },
+  "repo": {
+    "id": "repo_456",
+    "full_name": "trendhype/hello-skill"
+  },
+  "data": {
+    "package_id": "pkg_789",
+    "version": "1.2.0",
+    "state": "published",
+    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  }
+}

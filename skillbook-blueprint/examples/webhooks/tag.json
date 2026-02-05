@@ -1,0 +1,18 @@
+{
+  "id": "wh_1bf349bfb693a5e0",
+  "type": "tag",
+  "created_at": "2026-02-05T01:28:34Z",
+  "actor": {
+    "id": "usr_123",
+    "handle": "omer"
+  },
+  "repo": {
+    "id": "repo_456",
+    "full_name": "trendhype/hello-skill"
+  },
+  "data": {
+    "action": "created",
+    "tag": "v1.2.0",
+    "target_sha": "dddddddddddddddddddddddddddddddddddddddd"
+  }
+}

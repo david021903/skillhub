@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Validation Runner Job",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "repo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "clone_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "commit_sha": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "clone_url",
+        "commit_sha"
+      ]
+    },
+    "trigger": {
+      "type": "string",
+      "enum": [
+        "push",
+        "pull_request",
+        "manual",
+        "publish"
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 30
+        },
+        "max_memory_mb": {
+          "type": "integer",
+          "minimum": 128
+        },
+        "max_disk_mb": {
+          "type": "integer",
+          "minimum": 256
+        },
+        "network": {
+          "type": "string",
+          "enum": [
+            "none",
+            "egress_only",
+            "full"
+          ],
+          "default": "egress_only"
+        }
+      }
+    },
+    "callbacks": {
+      "type": "object",
+      "properties": {
+        "results_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "logs_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "results_url"
+      ]
+    }
+  },
+  "required": [
+    "job_id",
+    "run_id",
+    "repo",
+    "trigger",
+    "checks",
+    "limits",
+    "callbacks"
+  ]
+}

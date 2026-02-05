@@ -1,0 +1,45 @@
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "repo_full_name": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "keyword"
+      },
+      "display_name": {
+        "type": "text"
+      },
+      "description": {
+        "type": "text"
+      },
+      "version": {
+        "type": "keyword"
+      },
+      "tags": {
+        "type": "keyword"
+      },
+      "topics": {
+        "type": "keyword"
+      },
+      "stars": {
+        "type": "integer"
+      },
+      "forks": {
+        "type": "integer"
+      },
+      "updated_at": {
+        "type": "date"
+      },
+      "compat_frameworks": {
+        "type": "keyword"
+      },
+      "platforms": {
+        "type": "keyword"
+      }
+    }
+  }
+}

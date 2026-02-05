@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Meilisearch Skill Document",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "repo_full_name": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stars": {
+      "type": "integer"
+    },
+    "forks": {
+      "type": "integer"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "compat_frameworks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "id",
+    "repo_full_name",
+    "name",
+    "display_name",
+    "description",
+    "version",
+    "updated_at"
+  ]
+}

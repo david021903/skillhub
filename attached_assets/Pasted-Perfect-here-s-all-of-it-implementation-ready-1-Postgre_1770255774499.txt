@@ -1,0 +1,1041 @@
+Perfect — here’s **all of it**, implementation-ready.
+
+---
+
+## 1) Postgres schema (DDL)
+
+```sql
+-- SkillBook Postgres DDL (baseline)
+-- Assumes: Postgres 15+, uuid-ossp or gen_random_uuid via pgcrypto
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ---------- enums ----------
+DO $$ BEGIN
+  CREATE TYPE visibility_t AS ENUM ('public','private','internal');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE repo_role_t AS ENUM ('owner','admin','write','read');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE pr_status_t AS ENUM ('open','closed','merged');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE validation_status_t AS ENUM ('queued','running','passed','failed','canceled');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE release_status_t AS ENUM ('draft','published','yanked');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE install_status_t AS ENUM ('stable','deprecated','yanked');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ---------- users / orgs ----------
+CREATE TABLE IF NOT EXISTS users (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  handle          text UNIQUE NOT NULL CHECK (length(handle) >= 2),
+  email           text UNIQUE NOT NULL,
+  display_name    text,
+  avatar_url      text,
+  is_verified     boolean NOT NULL DEFAULT false,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS orgs (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug            text UNIQUE NOT NULL CHECK (length(slug) >= 2),
+  name            text NOT NULL,
+  owner_user_id   uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS org_members (
+  org_id          uuid NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  user_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role            repo_role_t NOT NULL DEFAULT 'read',
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, user_id)
+);
+
+-- ---------- repos ----------
+CREATE TABLE IF NOT EXISTS repos (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
+  owner_org_id      uuid REFERENCES orgs(id) ON DELETE CASCADE,
+  name              text NOT NULL CHECK (length(name) >= 2),
+  description       text,
+  visibility        visibility_t NOT NULL DEFAULT 'public',
+  default_branch    text NOT NULL DEFAULT 'main',
+  git_remote_url    text NOT NULL,
+  git_provider      text NOT NULL DEFAULT 'gitea', -- or github/bitbucket/etc
+  is_archived       boolean NOT NULL DEFAULT false,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  CHECK (
+    (owner_user_id IS NOT NULL AND owner_org_id IS NULL)
+    OR
+    (owner_user_id IS NULL AND owner_org_id IS NOT NULL)
+  ),
+  UNIQUE (owner_user_id, name),
+  UNIQUE (owner_org_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS repo_permissions (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id       uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role          repo_role_t NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (repo_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS forks (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_repo_id  uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  fork_repo_id    uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (parent_repo_id, fork_repo_id)
+);
+
+-- ---------- commits (indexed from git webhooks) ----------
+CREATE TABLE IF NOT EXISTS commits (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id       uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  commit_hash   text NOT NULL,
+  author_name   text,
+  author_email  text,
+  message       text,
+  committed_at  timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (repo_id, commit_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_commits_repo_time ON commits(repo_id, committed_at DESC);
+
+-- ---------- artifacts (logs, tarballs, SBOM, signatures) ----------
+CREATE TABLE IF NOT EXISTS artifacts (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind            text NOT NULL,  -- e.g. "validation_log","sbom","tarball","signature"
+  storage_key     text NOT NULL,  -- path/key in S3
+  content_type    text NOT NULL,
+  byte_size       bigint NOT NULL,
+  sha256          text NOT NULL,
+  created_by      uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---------- validations ----------
+CREATE TABLE IF NOT EXISTS validations (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id           uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  commit_hash       text NOT NULL,
+  status            validation_status_t NOT NULL DEFAULT 'queued',
+  stage_status      jsonb NOT NULL DEFAULT '{}'::jsonb, -- {stageA:{status,...},...}
+  risk_score        integer NOT NULL DEFAULT 0 CHECK (risk_score >= 0 AND risk_score <= 100),
+  findings          jsonb NOT NULL DEFAULT '[]'::jsonb,  -- list of lint findings
+  runner_version    text,
+  started_at        timestamptz,
+  finished_at       timestamptz,
+  log_artifact_id   uuid REFERENCES artifacts(id) ON DELETE SET NULL,
+  sbom_artifact_id  uuid REFERENCES artifacts(id) ON DELETE SET NULL,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (repo_id, commit_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_validations_repo_status ON validations(repo_id, status);
+
+-- ---------- pull requests ----------
+CREATE TABLE IF NOT EXISTS pull_requests (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id          uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  number           integer NOT NULL,
+  title            text NOT NULL,
+  body             text,
+  status           pr_status_t NOT NULL DEFAULT 'open',
+  source_repo_id   uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  source_branch    text NOT NULL,
+  target_branch    text NOT NULL,
+  created_by       uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  merged_by        uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  merged_at        timestamptz,
+  UNIQUE (repo_id, number)
+);
+
+-- ---------- issues ----------
+CREATE TABLE IF NOT EXISTS issues (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id      uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  number       integer NOT NULL,
+  title        text NOT NULL,
+  body         text,
+  status       text NOT NULL DEFAULT 'open', -- open/closed
+  created_by   uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (repo_id, number)
+);
+
+-- ---------- releases ----------
+CREATE TABLE IF NOT EXISTS releases (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id               uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  tag                   text NOT NULL,         -- e.g. v1.2.0
+  version               text NOT NULL,         -- 1.2.0
+  commit_hash           text NOT NULL,
+  status                release_status_t NOT NULL DEFAULT 'draft',
+  notes                 text,
+  tarball_artifact_id   uuid REFERENCES artifacts(id) ON DELETE SET NULL,
+  signature_artifact_id uuid REFERENCES artifacts(id) ON DELETE SET NULL,
+  published_by          uuid REFERENCES users(id) ON DELETE SET NULL,
+  published_at          timestamptz,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (repo_id, tag),
+  UNIQUE (repo_id, version)
+);
+
+-- ---------- registry entries (installable) ----------
+CREATE TABLE IF NOT EXISTS skill_registry_entries (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id            uuid NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  version            text NOT NULL,
+  tag                text NOT NULL,
+  commit_hash        text NOT NULL,
+  manifest           jsonb NOT NULL,              -- install manifest parsed from skill.md
+  integrity_sha256   text NOT NULL,
+  install_status     install_status_t NOT NULL DEFAULT 'stable',
+  tarball_artifact_id uuid NOT NULL REFERENCES artifacts(id) ON DELETE RESTRICT,
+  signature_artifact_id uuid REFERENCES artifacts(id) ON DELETE SET NULL,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (repo_id, version)
+);
+
+-- ---------- search cache table (optional; can be replaced by meilisearch) ----------
+CREATE TABLE IF NOT EXISTS skill_search_docs (
+  repo_id        uuid PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+  latest_version text,
+  doc            jsonb NOT NULL, -- denormalized fields for indexing
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+```
+
+---
+
+## 2) OpenAPI spec (REST) — `openapi.yaml`
+
+```yaml
+openapi: 3.1.0
+info:
+  title: SkillBook API
+  version: 1.0.0
+  description: GitHub-like registry and validation service for agent skills.
+servers:
+  - url: https://api.skillbook.example
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+        request_id: { type: string }
+      required: [error, message]
+    RepoRef:
+      type: object
+      properties:
+        owner: { type: string }
+        repo: { type: string }
+      required: [owner, repo]
+    Repo:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        owner_type: { type: string, enum: [user, org] }
+        owner: { type: string }
+        name: { type: string }
+        description: { type: string }
+        visibility: { type: string, enum: [public, private, internal] }
+        default_branch: { type: string }
+        git_remote_url: { type: string }
+        created_at: { type: string, format: date-time }
+      required: [id, owner_type, owner, name, visibility, default_branch, git_remote_url, created_at]
+    Commit:
+      type: object
+      properties:
+        commit_hash: { type: string }
+        message: { type: string }
+        author_name: { type: string }
+        committed_at: { type: string, format: date-time }
+      required: [commit_hash]
+    Validation:
+      type: object
+      properties:
+        repo_id: { type: string, format: uuid }
+        commit_hash: { type: string }
+        status: { type: string, enum: [queued, running, passed, failed, canceled] }
+        stage_status: { type: object, additionalProperties: true }
+        risk_score: { type: integer, minimum: 0, maximum: 100 }
+        findings: { type: array, items: { type: object } }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+      required: [commit_hash, status, stage_status, risk_score, findings]
+    Release:
+      type: object
+      properties:
+        tag: { type: string }
+        version: { type: string }
+        commit_hash: { type: string }
+        status: { type: string, enum: [draft, published, yanked] }
+        published_at: { type: string, format: date-time, nullable: true }
+      required: [tag, version, commit_hash, status]
+    RegistryEntry:
+      type: object
+      properties:
+        owner: { type: string }
+        repo: { type: string }
+        version: { type: string }
+        commit_hash: { type: string }
+        integrity_sha256: { type: string }
+        manifest: { type: object, additionalProperties: true }
+        install_status: { type: string, enum: [stable, deprecated, yanked] }
+      required: [owner, repo, version, commit_hash, integrity_sha256, manifest, install_status]
+
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        "200":
+          description: ok
+
+  /auth/login:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string }
+                password: { type: string }
+              required: [email, password]
+      responses:
+        "200":
+          description: jwt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                required: [token]
+        "401": { description: unauthorized, content: { application/json: { schema: { $ref: "#/components/schemas/Error" }}}}
+
+  /repos:
+    post:
+      summary: Create a repository in SkillBook (and git provider)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner: { type: string, description: "user handle or org slug" }
+                owner_type: { type: string, enum: [user, org] }
+                name: { type: string }
+                description: { type: string }
+                visibility: { type: string, enum: [public, private, internal] }
+              required: [owner, owner_type, name]
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Repo" }
+
+  /repos/{owner}/{repo}:
+    get:
+      summary: Get repository
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: repo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Repo" }
+        "404": { description: not found }
+
+  /repos/{owner}/{repo}/commits:
+    get:
+      summary: List commits
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+        - in: query
+          name: ref
+          required: false
+          schema: { type: string, default: main }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: commits
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Commit" }
+                required: [items]
+
+  /repos/{owner}/{repo}/validations/{commitHash}:
+    get:
+      summary: Get validation results for a commit
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+        - in: path
+          name: commitHash
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Validation" }
+        "404": { description: not found }
+
+  /repos/{owner}/{repo}/validate/{commitHash}:
+    post:
+      summary: Enqueue validation for commit
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+        - in: path
+          name: commitHash
+          required: true
+          schema: { type: string }
+      responses:
+        "202":
+          description: queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Validation" }
+
+  /repos/{owner}/{repo}/releases:
+    post:
+      summary: Create a release (draft/publish)
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tag: { type: string, example: "v1.2.0" }
+                version: { type: string, example: "1.2.0" }
+                commit_hash: { type: string }
+                status: { type: string, enum: [draft, published], default: draft }
+                notes: { type: string }
+              required: [tag, version, commit_hash]
+      responses:
+        "201":
+          description: release
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Release" }
+
+  /skills/{owner}/{repo}/versions:
+    get:
+      security: []
+      summary: List published versions
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: versions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        version: { type: string }
+                        tag: { type: string }
+                        install_status: { type: string }
+                      required: [version, tag, install_status]
+                required: [items]
+
+  /skills/{owner}/{repo}/{version}/manifest:
+    get:
+      security: []
+      summary: Get install manifest for a version
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+        - in: path
+          name: version
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: manifest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegistryEntry" }
+
+  /skills/{owner}/{repo}/{version}/download:
+    get:
+      security: []
+      summary: Download tarball (redirect to signed URL)
+      parameters:
+        - in: path
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: path
+          name: repo
+          required: true
+          schema: { type: string }
+        - in: path
+          name: version
+          required: true
+          schema: { type: string }
+      responses:
+        "302":
+          description: redirect to artifact url
+```
+
+---
+
+## 3) CLI behavior + config files
+
+### 3.1 CLI commands (contract)
+
+**Binary:** `skillbook`
+
+#### Auth
+
+* `skillbook login`
+
+  * opens browser OAuth OR prompts email/password
+  * stores token in config
+* `skillbook logout`
+* `skillbook whoami`
+
+#### Repo management
+
+* `skillbook create owner/skillname [--private|--public]`
+
+  * creates repo via API + creates remote
+* `skillbook fork owner/skillname`
+
+  * creates fork repo on server
+* `skillbook init`
+
+  * scaffolds a new skill repo in current dir:
+
+    * creates `skill.md`, `/schemas`, `/src`, `/tests`
+    * optionally runs `git init`
+    * optionally creates remote repo and sets origin
+
+#### Skill workflows
+
+* `skillbook lint`
+
+  * validates `skill.md` schema + references (local)
+* `skillbook validate [--remote]`
+
+  * local runs: frontmatter parse, schema, file checks, basic security grep
+  * remote runs: triggers server validation
+* `skillbook publish --tag vX.Y.Z [--notes file.md]`
+
+  * checks local:
+
+    * git clean
+    * `version` in `skill.md` matches tag
+  * requires server validation PASSED for commit
+  * creates release (published) + registry entry
+* `skillbook install owner/skill@1.2.0 [--path <opencaw_skills_dir>]`
+
+  * downloads manifest + tarball
+  * verifies sha256
+  * unpacks into `<path>/<owner>/<skill>/<version>/`
+  * writes lockfile
+* `skillbook update owner/skill`
+
+  * installs latest stable unless pinned
+* `skillbook uninstall owner/skill`
+* `skillbook list`
+
+  * lists installed skills from lockfile
+
+### 3.2 CLI config file locations
+
+* **Linux/mac:** `~/.config/skillbook/config.json`
+* **Windows:** `%APPDATA%\skillbook\config.json`
+* Project lock: `./skillbook.lock.json` (in workspace or OpenClaw folder)
+
+### 3.3 `config.json` (example)
+
+```json
+{
+  "apiBaseUrl": "https://api.skillbook.example",
+  "auth": {
+    "token": "JWT_HERE"
+  },
+  "defaults": {
+    "ownerType": "user",
+    "installPath": "~/.opencaw/skills",
+    "gitProvider": "gitea"
+  }
+}
+```
+
+### 3.4 `skillbook.lock.json` (example)
+
+```json
+{
+  "lockVersion": 1,
+  "installedAt": "2026-02-04T17:00:00Z",
+  "installRoot": "~/.opencaw/skills",
+  "skills": [
+    {
+      "name": "vultr-provisioner",
+      "owner": "omer",
+      "version": "1.2.0",
+      "tag": "v1.2.0",
+      "commitHash": "abc123...",
+      "integritySha256": "7d3b...f1",
+      "source": "registry",
+      "installedPath": "~/.opencaw/skills/omer/vultr-provisioner/1.2.0"
+    }
+  ]
+}
+```
+
+---
+
+## 4) `skill.md` template + JSON schemas
+
+### 4.1 `skill.md` template (copy/paste)
+
+````md
+---
+skill_id: "com.skillbook.<owner>.<repo>"
+name: "<Skill Name>"
+description: "One-line: what this skill does."
+version: "0.1.0"
+license: "MIT"
+maintainers:
+  - handle: "<owner>"
+    contact: "<email or link>"
+runtime:
+  language: "node"          # node|python
+  min_version: "20"         # "3.11" for python
+platforms: ["linux", "windows"] # linux|windows|mac
+permissions:
+  network: true
+  filesystem: "limited"     # none|limited|full
+  browser_automation: false
+  shell_exec: false
+secrets:
+  - name: "VULTR_API_KEY"
+    required: true
+    description: "API key for Vultr."
+capabilities:
+  - "provision_vps"
+  - "list_instances"
+entrypoints:
+  - fn: "create_instance"
+    summary: "Create a new VPS instance with tags."
+    input_schema: "./schemas/create_instance.json"
+    output_schema: "./schemas/create_instance.result.json"
+  - fn: "list_instances"
+    summary: "List active instances."
+    input_schema: "./schemas/list_instances.json"
+    output_schema: "./schemas/list_instances.result.json"
+compatibility:
+  opencaw_min_version: "0.3.0"
+  notes: "Requires outbound HTTPS to api.vultr.com"
+---
+
+# <Skill Name>
+
+## What it does
+Explain in 2–5 bullets what the skill does and what it does NOT do.
+
+## Setup
+### Install
+- `npm i` or `pip install -r requirements.txt`
+- Any OS-specific notes.
+
+### Secrets / Env Vars
+- `VULTR_API_KEY` (required) — how to create it.
+
+## Functions (Entrypoints)
+
+### create_instance(input)
+**Purpose:** Create an instance.
+
+**Input schema:** `./schemas/create_instance.json`  
+**Output schema:** `./schemas/create_instance.result.json`
+
+**Example input:**
+```json
+{ "region": "ewr", "plan": "vc2-1c-1gb", "os_id": 387, "label": "bot-1", "tags": ["prod","tg"] }
+````
+
+**Example output:**
+
+```json
+{ "instance_id": "abcd-...", "status": "queued" }
+```
+
+### list_instances(input)
+
+Describe.
+
+## Safety & Guardrails
+
+* What it can access (network endpoints, filesystem scope)
+* Rate limits / retries
+* Idempotency rules (safe to retry? how?)
+
+## Tests
+
+* `npm test` / `pytest`
+* Describe fixtures / mocking
+
+## Changelog
+
+### 0.1.0
+
+* Initial release
+
+````
+
+### 4.2 JSON Schemas
+
+#### `schemas/create_instance.json`
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "create_instance input",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "region": { "type": "string", "minLength": 1 },
+    "plan": { "type": "string", "minLength": 1 },
+    "os_id": { "type": "integer", "minimum": 1 },
+    "label": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 32 },
+      "maxItems": 20,
+      "default": []
+    }
+  },
+  "required": ["region", "plan", "os_id", "label"]
+}
+````
+
+#### `schemas/create_instance.result.json`
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "create_instance output",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "instance_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["queued", "creating", "active", "failed"] },
+    "message": { "type": "string" }
+  },
+  "required": ["instance_id", "status"]
+}
+```
+
+#### `schemas/list_instances.json`
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "list_instances input",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tag": { "type": "string", "minLength": 1 },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+  }
+}
+```
+
+#### `schemas/list_instances.result.json`
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "list_instances output",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": { "type": "string" },
+          "label": { "type": "string" },
+          "region": { "type": "string" },
+          "plan": { "type": "string" },
+          "status": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["instance_id", "label", "status"]
+      }
+    }
+  },
+  "required": ["items"]
+}
+```
+
+---
+
+## 5) Validation rules list (100+ checks)
+
+Below is a **realistic rulebook** you can implement as a linter + pipeline. Grouped by stage.
+
+### Stage A — Repo structure & required files (15)
+
+1. `skill.md` exists at repo root
+2. `skill.md` file size < 1MB
+3. YAML front matter exists and parses
+4. `name` exists and length 3–80
+5. `skill_id` exists, reverse-DNS-ish format
+6. `version` exists and is SemVer `X.Y.Z`
+7. `license` exists
+8. `runtime.language` is in allowed set
+9. `runtime.min_version` present
+10. `platforms` is non-empty array of allowed values
+11. `permissions` object present
+12. `entrypoints` array present and non-empty
+13. each `entrypoints[].fn` unique
+14. each referenced `input_schema` file exists
+15. each referenced `output_schema` file exists
+
+### Stage B — Metadata integrity & consistency (15)
+
+16. tag `vX.Y.Z` must match `version X.Y.Z` at publish time
+17. `description` length 10–200
+18. `maintainers` list non-empty for public repos
+19. `secrets[].name` UPPER_SNAKE_CASE
+20. no duplicate secret names
+21. capabilities list no duplicates
+22. permissions align with declared capabilities (heuristic map)
+23. `compatibility.opencaw_min_version` must be SemVer
+24. `entrypoints[].summary` required and length 10–140
+25. `license` must be SPDX identifier
+26. `skill_id` must match owner/repo (policy)
+27. `entrypoints[].fn` must be snake_case or camelCase (choose one)
+28. no URLs to raw secrets in docs
+29. no “install by curl | bash” without checksum
+30. changelog present for versions >= 1.0.0 (policy)
+
+### Stage C — JSON schema correctness (15)
+
+31. input schemas must be valid JSON
+32. output schemas must be valid JSON
+33. `$schema` must be draft 2020-12 or later
+34. schemas must have `type: object`
+35. `additionalProperties` must be false (default policy)
+36. required fields must exist in `properties`
+37. property names must be snake_case (policy)
+38. numeric bounds must be sane (no max < min)
+39. arrays must set `maxItems` when unbounded risk exists
+40. strings should have minLength when required
+41. outputs must not allow arbitrary extra keys
+42. output schemas must include success/failure signaling pattern (status/message)
+43. schemas must not be cyclic references unless supported
+44. file paths in schema references cannot escape repo (`../`)
+45. schemas must not exceed size threshold (e.g., 200KB each)
+
+### Stage D — Dependency & supply-chain checks (15)
+
+46. must have lockfile (`package-lock.json`/`pnpm-lock.yaml`/`poetry.lock`) if deps exist
+47. disallow git-url dependencies unless allowlisted
+48. disallow local path deps that escape repo
+49. scan packages against vuln DB (SCA) — fail on critical
+50. detect typosquatting (edit distance to popular packages) — warn/fail
+51. enforce Node engine constraints (if node)
+52. enforce Python pinned deps (no naked `requests` without version) (policy)
+53. licenses of deps compatible with repo license (policy)
+54. disallow postinstall scripts unless reviewed (policy)
+55. SBOM generation required for publishable release
+56. block known malicious packages list
+57. enforce `npm audit` / `pip-audit` baseline
+58. verify checksums for downloaded binaries in scripts
+59. no downloading “latest” binaries without pin
+60. no private registry refs unless repo private
+
+### Stage E — Static security lint (20)
+
+61. block `rm -rf /` patterns
+62. block recursive delete in repo root without explicit guard
+63. block credential exfil patterns (`curl ... token`, `fetch("http://...")` with env dumps)
+64. block printing env vars in logs (`process.env`, `os.environ`) unless allowlisted keys
+65. block reading `~/.ssh` (unless permission declared + reviewed)
+66. block attempts to access browser password stores
+67. block attempts to access system keychains (unless declared)
+68. block raw socket usage (unless declared)
+69. block crypto-mining signatures (heuristic)
+70. block contacting known suspicious domains (denylist)
+71. enforce network allowlist if provided
+72. if `shell_exec=false`, disallow `child_process.exec/spawn` (node)
+73. if `filesystem=none`, disallow fs imports (node) / open() usage (python)
+74. forbid self-modifying code (writing into src) during runtime unless declared
+75. block dynamic `eval()` (node) / `exec()` (python) unless reviewed
+76. block disabling TLS verification (NODE_TLS_REJECT_UNAUTHORIZED=0)
+77. block MITM proxy auto-config changes
+78. enforce user-agent tagging on outbound HTTP (observability)
+79. require timeouts on outbound HTTP
+80. require retry/backoff policy declaration for external APIs
+
+### Stage F — Sandbox execution & tests (20)
+
+81. must run unit tests successfully if `/tests` exists
+82. tests must not require real secrets (mock required)
+83. block network egress in sandbox by default
+84. allow egress only to mocked endpoints unless “network=true + allowlist”
+85. ensure `skill.md` examples conform to input schema (example validator)
+86. ensure outputs from tests conform to output schema
+87. enforce max runtime per test suite (e.g., 60s)
+88. enforce max memory (e.g., 512MB)
+89. enforce deterministic behavior (no random without seed) (warn)
+90. enforce no writes outside sandbox temp dir
+91. ensure “entrypoint” functions exist (if code is introspectable)
+92. enforce idempotency claims: if marked idempotent, rerun test twice same output (policy)
+93. enforce rate-limit: simulated burst should not exceed declared qps (policy)
+94. ensure no background daemons spawned by tests
+95. ensure cleanup of temp files
+96. ensure no privilege escalation attempts
+97. ensure no kernel syscalls blocked by sandbox
+98. capture SBOM + provenance
+99. compute integrity sha256 for tarball
+100. sign release artifact (if verified channel)
+101. enforce release only from passed validation commit
+102. enforce changelog updated when version bump
+103. enforce `permissions` in skill.md matches observed behavior (best-effort)
+104. enforce `platforms` claims: basic smoke test in each target OS runner (optional gate)
+105. produce risk score based on findings severity
+
+### Stage G — Policy & moderation (optional but real) (10)
+
+106. block obvious malware behavior
+107. block instructions to steal data
+108. block “hidden” tracking beyond declared telemetry
+109. require disclosure of data collection
+110. enforce privacy policy link if telemetry enabled
+111. require contact/maintainer response path for verified
+112. disallow trademark abuse in name (policy)
+113. disallow impersonation of official brands
+114. ensure license file matches declared license (policy)
+115. ensure third-party assets are licensed (policy)
+
+That’s **115** checks. You can start with ~30 and scale.
+
+---
+
+## What you should do next (so this becomes buildable immediately)
+
+If you tell me **one** choice, I’ll tailor the next output into “drop-in implementation specs”:
+
+* **Do you want to use Gitea as the underlying git host?** (recommended)
+
+If yes, next step I’ll output:
+
+* webhook payload formats (push/PR/tag)
+* exact validation runner job payload schema
+* “publish” flow state machine
+* search index document schema (Meilisearch/OpenSearch)
+* minimum infra Terraform layout (DB/Redis/S3/runner)
+
+Just reply: **“yes gitea”** or **“no, github app”** and I’ll lock it in.

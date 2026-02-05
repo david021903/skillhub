@@ -1,0 +1,726 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-02-05T01:28:34Z",
+  "rules": [
+    {
+      "id": "manifest.001",
+      "category": "manifest",
+      "title": "skillbook.json present at repo root",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.002",
+      "category": "manifest",
+      "title": "manifest is valid JSON",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.003",
+      "category": "manifest",
+      "title": "name matches allowed pattern",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.004",
+      "category": "manifest",
+      "title": "version is valid semver",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.005",
+      "category": "manifest",
+      "title": "license present",
+      "severity": "error"
+    },
+    {
+      "id": "skillmd.006",
+      "category": "skillmd",
+      "title": "skill.md exists",
+      "severity": "error"
+    },
+    {
+      "id": "skillmd.007",
+      "category": "skillmd",
+      "title": "skill.md has Permissions & Safety section",
+      "severity": "error"
+    },
+    {
+      "id": "security.008",
+      "category": "security",
+      "title": "no private keys committed",
+      "severity": "error"
+    },
+    {
+      "id": "security.009",
+      "category": "security",
+      "title": "no common API tokens committed",
+      "severity": "error"
+    },
+    {
+      "id": "packaging.010",
+      "category": "packaging",
+      "title": "no node_modules in package",
+      "severity": "error"
+    },
+    {
+      "id": "packaging.011",
+      "category": "packaging",
+      "title": "total package size <= 25MB (default)",
+      "severity": "error"
+    },
+    {
+      "id": "policy.012",
+      "category": "policy",
+      "title": "no prohibited content in description/docs",
+      "severity": "error"
+    },
+    {
+      "id": "policy.013",
+      "category": "policy",
+      "title": "publish requires passing all error-severity checks",
+      "severity": "error"
+    },
+    {
+      "id": "policy.014",
+      "category": "policy",
+      "title": "check: policy rule 14",
+      "severity": "warning"
+    },
+    {
+      "id": "manifest.015",
+      "category": "manifest",
+      "title": "check: manifest rule 15",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.016",
+      "category": "tests",
+      "title": "check: tests rule 16",
+      "severity": "error"
+    },
+    {
+      "id": "repo.017",
+      "category": "repo",
+      "title": "check: repo rule 17",
+      "severity": "error"
+    },
+    {
+      "id": "tests.018",
+      "category": "tests",
+      "title": "check: tests rule 18",
+      "severity": "error"
+    },
+    {
+      "id": "repo.019",
+      "category": "repo",
+      "title": "check: repo rule 19",
+      "severity": "error"
+    },
+    {
+      "id": "policy.020",
+      "category": "policy",
+      "title": "check: policy rule 20",
+      "severity": "warning"
+    },
+    {
+      "id": "repo.021",
+      "category": "repo",
+      "title": "check: repo rule 21",
+      "severity": "warning"
+    },
+    {
+      "id": "compat.022",
+      "category": "compat",
+      "title": "check: compat rule 22",
+      "severity": "error"
+    },
+    {
+      "id": "licensing.023",
+      "category": "licensing",
+      "title": "check: licensing rule 23",
+      "severity": "error"
+    },
+    {
+      "id": "tests.024",
+      "category": "tests",
+      "title": "check: tests rule 24",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.025",
+      "category": "manifest",
+      "title": "check: manifest rule 25",
+      "severity": "warning"
+    },
+    {
+      "id": "compat.026",
+      "category": "compat",
+      "title": "check: compat rule 26",
+      "severity": "error"
+    },
+    {
+      "id": "docs.027",
+      "category": "docs",
+      "title": "check: docs rule 27",
+      "severity": "error"
+    },
+    {
+      "id": "packaging.028",
+      "category": "packaging",
+      "title": "check: packaging rule 28",
+      "severity": "error"
+    },
+    {
+      "id": "compat.029",
+      "category": "compat",
+      "title": "check: compat rule 29",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.030",
+      "category": "policy",
+      "title": "check: policy rule 30",
+      "severity": "error"
+    },
+    {
+      "id": "skillmd.031",
+      "category": "skillmd",
+      "title": "check: skillmd rule 31",
+      "severity": "error"
+    },
+    {
+      "id": "tests.032",
+      "category": "tests",
+      "title": "check: tests rule 32",
+      "severity": "error"
+    },
+    {
+      "id": "security.033",
+      "category": "security",
+      "title": "check: security rule 33",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.034",
+      "category": "tests",
+      "title": "check: tests rule 34",
+      "severity": "warning"
+    },
+    {
+      "id": "licensing.035",
+      "category": "licensing",
+      "title": "check: licensing rule 35",
+      "severity": "error"
+    },
+    {
+      "id": "skillmd.036",
+      "category": "skillmd",
+      "title": "check: skillmd rule 36",
+      "severity": "warning"
+    },
+    {
+      "id": "security.037",
+      "category": "security",
+      "title": "check: security rule 37",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.038",
+      "category": "tests",
+      "title": "check: tests rule 38",
+      "severity": "warning"
+    },
+    {
+      "id": "security.039",
+      "category": "security",
+      "title": "check: security rule 39",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.040",
+      "category": "manifest",
+      "title": "check: manifest rule 40",
+      "severity": "warning"
+    },
+    {
+      "id": "docs.041",
+      "category": "docs",
+      "title": "check: docs rule 41",
+      "severity": "error"
+    },
+    {
+      "id": "compat.042",
+      "category": "compat",
+      "title": "check: compat rule 42",
+      "severity": "error"
+    },
+    {
+      "id": "docs.043",
+      "category": "docs",
+      "title": "check: docs rule 43",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.044",
+      "category": "policy",
+      "title": "check: policy rule 44",
+      "severity": "warning"
+    },
+    {
+      "id": "licensing.045",
+      "category": "licensing",
+      "title": "check: licensing rule 45",
+      "severity": "error"
+    },
+    {
+      "id": "compat.046",
+      "category": "compat",
+      "title": "check: compat rule 46",
+      "severity": "error"
+    },
+    {
+      "id": "tests.047",
+      "category": "tests",
+      "title": "check: tests rule 47",
+      "severity": "error"
+    },
+    {
+      "id": "tests.048",
+      "category": "tests",
+      "title": "check: tests rule 48",
+      "severity": "error"
+    },
+    {
+      "id": "licensing.049",
+      "category": "licensing",
+      "title": "check: licensing rule 49",
+      "severity": "warning"
+    },
+    {
+      "id": "manifest.050",
+      "category": "manifest",
+      "title": "check: manifest rule 50",
+      "severity": "error"
+    },
+    {
+      "id": "compat.051",
+      "category": "compat",
+      "title": "check: compat rule 51",
+      "severity": "error"
+    },
+    {
+      "id": "docs.052",
+      "category": "docs",
+      "title": "check: docs rule 52",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.053",
+      "category": "policy",
+      "title": "check: policy rule 53",
+      "severity": "error"
+    },
+    {
+      "id": "security.054",
+      "category": "security",
+      "title": "check: security rule 54",
+      "severity": "warning"
+    },
+    {
+      "id": "licensing.055",
+      "category": "licensing",
+      "title": "check: licensing rule 55",
+      "severity": "error"
+    },
+    {
+      "id": "repo.056",
+      "category": "repo",
+      "title": "check: repo rule 56",
+      "severity": "warning"
+    },
+    {
+      "id": "security.057",
+      "category": "security",
+      "title": "check: security rule 57",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.058",
+      "category": "tests",
+      "title": "check: tests rule 58",
+      "severity": "error"
+    },
+    {
+      "id": "security.059",
+      "category": "security",
+      "title": "check: security rule 59",
+      "severity": "error"
+    },
+    {
+      "id": "compat.060",
+      "category": "compat",
+      "title": "check: compat rule 60",
+      "severity": "warning"
+    },
+    {
+      "id": "packaging.061",
+      "category": "packaging",
+      "title": "check: packaging rule 61",
+      "severity": "error"
+    },
+    {
+      "id": "docs.062",
+      "category": "docs",
+      "title": "check: docs rule 62",
+      "severity": "warning"
+    },
+    {
+      "id": "manifest.063",
+      "category": "manifest",
+      "title": "check: manifest rule 63",
+      "severity": "error"
+    },
+    {
+      "id": "licensing.064",
+      "category": "licensing",
+      "title": "check: licensing rule 64",
+      "severity": "warning"
+    },
+    {
+      "id": "docs.065",
+      "category": "docs",
+      "title": "check: docs rule 65",
+      "severity": "error"
+    },
+    {
+      "id": "policy.066",
+      "category": "policy",
+      "title": "check: policy rule 66",
+      "severity": "warning"
+    },
+    {
+      "id": "packaging.067",
+      "category": "packaging",
+      "title": "check: packaging rule 67",
+      "severity": "error"
+    },
+    {
+      "id": "docs.068",
+      "category": "docs",
+      "title": "check: docs rule 68",
+      "severity": "error"
+    },
+    {
+      "id": "policy.069",
+      "category": "policy",
+      "title": "check: policy rule 69",
+      "severity": "error"
+    },
+    {
+      "id": "packaging.070",
+      "category": "packaging",
+      "title": "check: packaging rule 70",
+      "severity": "error"
+    },
+    {
+      "id": "licensing.071",
+      "category": "licensing",
+      "title": "check: licensing rule 71",
+      "severity": "error"
+    },
+    {
+      "id": "packaging.072",
+      "category": "packaging",
+      "title": "check: packaging rule 72",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.073",
+      "category": "policy",
+      "title": "check: policy rule 73",
+      "severity": "warning"
+    },
+    {
+      "id": "security.074",
+      "category": "security",
+      "title": "check: security rule 74",
+      "severity": "warning"
+    },
+    {
+      "id": "manifest.075",
+      "category": "manifest",
+      "title": "check: manifest rule 75",
+      "severity": "warning"
+    },
+    {
+      "id": "compat.076",
+      "category": "compat",
+      "title": "check: compat rule 76",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.077",
+      "category": "policy",
+      "title": "check: policy rule 77",
+      "severity": "warning"
+    },
+    {
+      "id": "manifest.078",
+      "category": "manifest",
+      "title": "check: manifest rule 78",
+      "severity": "warning"
+    },
+    {
+      "id": "repo.079",
+      "category": "repo",
+      "title": "check: repo rule 79",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.080",
+      "category": "tests",
+      "title": "check: tests rule 80",
+      "severity": "error"
+    },
+    {
+      "id": "skillmd.081",
+      "category": "skillmd",
+      "title": "check: skillmd rule 81",
+      "severity": "error"
+    },
+    {
+      "id": "security.082",
+      "category": "security",
+      "title": "check: security rule 82",
+      "severity": "warning"
+    },
+    {
+      "id": "docs.083",
+      "category": "docs",
+      "title": "check: docs rule 83",
+      "severity": "error"
+    },
+    {
+      "id": "licensing.084",
+      "category": "licensing",
+      "title": "check: licensing rule 84",
+      "severity": "warning"
+    },
+    {
+      "id": "packaging.085",
+      "category": "packaging",
+      "title": "check: packaging rule 85",
+      "severity": "warning"
+    },
+    {
+      "id": "repo.086",
+      "category": "repo",
+      "title": "check: repo rule 86",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.087",
+      "category": "policy",
+      "title": "check: policy rule 87",
+      "severity": "error"
+    },
+    {
+      "id": "tests.088",
+      "category": "tests",
+      "title": "check: tests rule 88",
+      "severity": "warning"
+    },
+    {
+      "id": "licensing.089",
+      "category": "licensing",
+      "title": "check: licensing rule 89",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.090",
+      "category": "policy",
+      "title": "check: policy rule 90",
+      "severity": "warning"
+    },
+    {
+      "id": "security.091",
+      "category": "security",
+      "title": "check: security rule 91",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.092",
+      "category": "manifest",
+      "title": "check: manifest rule 92",
+      "severity": "warning"
+    },
+    {
+      "id": "licensing.093",
+      "category": "licensing",
+      "title": "check: licensing rule 93",
+      "severity": "error"
+    },
+    {
+      "id": "skillmd.094",
+      "category": "skillmd",
+      "title": "check: skillmd rule 94",
+      "severity": "warning"
+    },
+    {
+      "id": "manifest.095",
+      "category": "manifest",
+      "title": "check: manifest rule 95",
+      "severity": "warning"
+    },
+    {
+      "id": "docs.096",
+      "category": "docs",
+      "title": "check: docs rule 96",
+      "severity": "warning"
+    },
+    {
+      "id": "security.097",
+      "category": "security",
+      "title": "check: security rule 97",
+      "severity": "warning"
+    },
+    {
+      "id": "policy.098",
+      "category": "policy",
+      "title": "check: policy rule 98",
+      "severity": "warning"
+    },
+    {
+      "id": "docs.099",
+      "category": "docs",
+      "title": "check: docs rule 99",
+      "severity": "error"
+    },
+    {
+      "id": "manifest.100",
+      "category": "manifest",
+      "title": "check: manifest rule 100",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.101",
+      "category": "tests",
+      "title": "check: tests rule 101",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.102",
+      "category": "tests",
+      "title": "check: tests rule 102",
+      "severity": "warning"
+    },
+    {
+      "id": "security.103",
+      "category": "security",
+      "title": "check: security rule 103",
+      "severity": "error"
+    },
+    {
+      "id": "tests.104",
+      "category": "tests",
+      "title": "check: tests rule 104",
+      "severity": "error"
+    },
+    {
+      "id": "security.105",
+      "category": "security",
+      "title": "check: security rule 105",
+      "severity": "warning"
+    },
+    {
+      "id": "tests.106",
+      "category": "tests",
+      "title": "check: tests rule 106",
+      "severity": "warning"
+    },
+    {
+      "id": "docs.107",
+      "category": "docs",
+      "title": "check: docs rule 107",
+      "severity": "error"
+    },
+    {
+      "id": "policy.108",
+      "category": "policy",
+      "title": "check: policy rule 108",
+      "severity": "warning"
+    },
+    {
+      "id": "repo.109",
+      "category": "repo",
+      "title": "check: repo rule 109",
+      "severity": "warning"
+    },
+    {
+      "id": "packaging.110",
+      "category": "packaging",
+      "title": "check: packaging rule 110",
+      "severity": "error"
+    },
+    {
+      "id": "policy.111",
+      "category": "policy",
+      "title": "check: policy rule 111",
+      "severity": "error"
+    },
+    {
+      "id": "compat.112",
+      "category": "compat",
+      "title": "check: compat rule 112",
+      "severity": "warning"
+    },
+    {
+      "id": "security.113",
+      "category": "security",
+      "title": "check: security rule 113",
+      "severity": "error"
+    },
+    {
+      "id": "licensing.114",
+      "category": "licensing",
+      "title": "check: licensing rule 114",
+      "severity": "warning"
+    },
+    {
+      "id": "packaging.115",
+      "category": "packaging",
+      "title": "check: packaging rule 115",
+      "severity": "error"
+    },
+    {
+      "id": "compat.116",
+      "category": "compat",
+      "title": "check: compat rule 116",
+      "severity": "error"
+    },
+    {
+      "id": "policy.117",
+      "category": "policy",
+      "title": "check: policy rule 117",
+      "severity": "warning"
+    },
+    {
+      "id": "compat.118",
+      "category": "compat",
+      "title": "check: compat rule 118",
+      "severity": "error"
+    },
+    {
+      "id": "docs.119",
+      "category": "docs",
+      "title": "check: docs rule 119",
+      "severity": "warning"
+    },
+    {
+      "id": "packaging.120",
+      "category": "packaging",
+      "title": "check: packaging rule 120",
+      "severity": "error"
+    }
+  ]
+}

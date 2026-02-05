@@ -1,0 +1,28 @@
+{
+  "id": "wh_d6e0465ce135ec1a",
+  "type": "push",
+  "created_at": "2026-02-05T01:28:34Z",
+  "actor": {
+    "id": "usr_123",
+    "handle": "omer"
+  },
+  "repo": {
+    "id": "repo_456",
+    "full_name": "trendhype/hello-skill"
+  },
+  "data": {
+    "ref": "refs/heads/main",
+    "before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "commits": [
+      {
+        "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "message": "Update skill docs",
+        "author": {
+          "handle": "omer"
+        },
+        "timestamp": "2026-02-05T01:28:34.125514Z"
+      }
+    ]
+  }
+}

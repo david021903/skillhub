@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillBook Webhook Payload",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "push",
+        "pull_request",
+        "tag",
+        "publish",
+        "validation_run"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "handle": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "handle"
+      ]
+    },
+    "repo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "full_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "full_name"
+      ]
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "type",
+    "created_at",
+    "actor",
+    "repo",
+    "data"
+  ]
+}

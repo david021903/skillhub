@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "body": {
+      "type": "string"
+    },
+    "base_branch": {
+      "type": "string"
+    },
+    "head_owner": {
+      "type": "string"
+    },
+    "head_repo": {
+      "type": "string"
+    },
+    "head_branch": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "base_branch",
+    "head_owner",
+    "head_repo",
+    "head_branch"
+  ]
+}

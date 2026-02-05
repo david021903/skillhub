@@ -1,0 +1,25 @@
+{
+  "id": "wh_1d13239166b6faed",
+  "type": "pull_request",
+  "created_at": "2026-02-05T01:28:34Z",
+  "actor": {
+    "id": "usr_123",
+    "handle": "omer"
+  },
+  "repo": {
+    "id": "repo_456",
+    "full_name": "trendhype/hello-skill"
+  },
+  "data": {
+    "action": "opened",
+    "number": 12,
+    "title": "Add new WhatsApp parser skill",
+    "base": {
+      "ref": "main"
+    },
+    "head": {
+      "ref": "feature/wa-parser",
+      "sha": "cccccccccccccccccccccccccccccccccccccccc"
+    }
+  }
+}

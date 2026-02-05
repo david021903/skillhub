@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "owner_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "org"
+      ]
+    },
+    "owner_slug": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string"
+    },
+    "is_private": {
+      "type": "boolean",
+      "default": false
+    },
+    "license": {
+      "type": "string"
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "owner_type",
+    "owner_slug",
+    "name"
+  ]
+}

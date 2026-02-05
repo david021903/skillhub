@@ -1,0 +1,33 @@
+{
+  "name": "hello-world",
+  "display_name": "Hello World Skill",
+  "version": "0.1.0",
+  "description": "A minimal example skill demonstrating SkillBook structure and validation.",
+  "license": "MIT",
+  "compatibility": {
+    "frameworks": [
+      "opencaw/skillspec@1"
+    ],
+    "min_runtime": "node>=18",
+    "platforms": [
+      "linux",
+      "windows",
+      "macos"
+    ]
+  },
+  "entrypoints": {
+    "skill_md": "skill.md",
+    "runner": "runner/index.js",
+    "tests": "tests/"
+  },
+  "permissions": {
+    "network": false,
+    "filesystem": false,
+    "browser": false,
+    "secrets": []
+  },
+  "tags": [
+    "example",
+    "hello"
+  ]
+}

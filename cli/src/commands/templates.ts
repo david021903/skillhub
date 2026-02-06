@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
-import { api } from "../api.js";
+import { get, post } from "../api.js";
 import fs from "fs";
 import path from "path";
 
@@ -25,8 +25,8 @@ export function templateCommands(program: Command) {
     .option("-c, --category <category>", "Filter by category")
     .action(async (options) => {
       try {
-        const response = await api.get("/api/templates");
-        let templateList: Template[] = response.data;
+        const response = await get<Template[]>("/api/templates");
+        let templateList: Template[] = response.data || [];
 
         if (options.category) {
           templateList = templateList.filter(
@@ -72,7 +72,8 @@ export function templateCommands(program: Command) {
     .option("-f, --force", "Overwrite existing file")
     .action(async (templateId, options) => {
       try {
-        const response = await api.get(`/api/templates/${templateId}`);
+        const response = await get<Template>(`/api/templates/${templateId}`);
+        if (!response.data) throw new Error("Template not found");
         const template: Template = response.data;
 
         const outputPath = path.resolve(options.output);
@@ -109,7 +110,8 @@ export function templateCommands(program: Command) {
     .argument("<template-id>", "Template ID to show")
     .action(async (templateId) => {
       try {
-        const response = await api.get(`/api/templates/${templateId}`);
+        const response = await get<Template>(`/api/templates/${templateId}`);
+        if (!response.data) throw new Error("Template not found");
         const template: Template = response.data;
 
         console.log(chalk.bold.blue(template.name));

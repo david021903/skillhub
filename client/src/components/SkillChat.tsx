@@ -3,9 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, Send, Loader2, Bot, User, Key } from "lucide-react";
+import { MessageCircle, Send, Loader2, Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Link } from "wouter";
 
 interface Message {
   role: "user" | "assistant";
@@ -21,7 +20,6 @@ export function SkillChat({ skillMd, skillName = "this skill" }: SkillChatProps)
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [needsApiKey, setNeedsApiKey] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,18 +47,7 @@ export function SkillChat({ skillMd, skillName = "this skill" }: SkillChatProps)
         }),
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        if (response.status === 400 && data.message?.toLowerCase().includes("api key")) {
-          setNeedsApiKey(true);
-          throw new Error(data.message);
-        }
-        if (response.status === 401) {
-          throw new Error("Please sign in to use AI features");
-        }
-        throw new Error(data.message || "Failed to send message");
-      }
-      setNeedsApiKey(false);
+      if (!response.ok) throw new Error("Failed to send message");
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No response body");
@@ -94,16 +81,10 @@ export function SkillChat({ skillMd, skillName = "this skill" }: SkillChatProps)
           } catch {}
         }
       }
-    } catch (error: any) {
-      const isApiKeyError = error?.message?.toLowerCase().includes("api key");
+    } catch (error) {
       setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: isApiKeyError
-          ? "I need an OpenAI API key to work. Please add your key in Settings > AI."
-          : error?.message === "Please sign in to use AI features"
-          ? "Please sign in to use AI features."
-          : "Sorry, something went wrong. Please try again."
-        },
+        ...prev.slice(0, -1),
+        { role: "assistant", content: "Sorry, something went wrong. Please try again." },
       ]);
     } finally {
       setIsStreaming(false);
@@ -185,37 +166,25 @@ export function SkillChat({ skillMd, skillName = "this skill" }: SkillChatProps)
           )}
         </ScrollArea>
 
-        <div className="space-y-1">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Type your question..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isStreaming}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={!input.trim() || isStreaming}
-              size="icon"
-            >
-              {isStreaming ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-          {needsApiKey && (
-            <div className="flex items-center gap-1.5 px-1">
-              <Key className="h-3 w-3 text-amber-500" />
-              <Link href="/settings/ai">
-                <span className="text-xs text-muted-foreground hover:text-primary underline cursor-pointer">
-                  Add your OpenAI API key
-                </span>
-              </Link>
-            </div>
-          )}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Type your question..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isStreaming}
+          />
+          <Button
+            onClick={sendMessage}
+            disabled={!input.trim() || isStreaming}
+            size="icon"
+          >
+            {isStreaming ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
         </div>
       </CardContent>
     </Card>

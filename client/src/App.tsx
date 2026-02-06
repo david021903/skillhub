@@ -17,6 +17,7 @@ import SettingsAppearance from "./pages/SettingsAppearance";
 import SettingsAI from "./pages/SettingsAI";
 import Starred from "./pages/Starred";
 import Validate from "./pages/Validate";
+import AIGenerator from "./pages/AIGenerator";
 
 function App() {
   const { user, isLoading } = useAuth();
@@ -68,6 +69,8 @@ function App() {
             <Route path="/settings/tokens" component={SettingsTokens} />
             <Route path="/settings/appearance" component={SettingsAppearance} />
             <Route path="/settings/ai" component={SettingsAI} />
+            <Route path="/generate" component={AIGenerator} />
+            <Route path="/users/:handle" component={Profile} />
             <Route path="/u/:handle" component={Profile} />
             <Route>
               <div className="text-center py-20">

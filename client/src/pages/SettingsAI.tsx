@@ -1,6 +1,8 @@
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Wand2, MessageSquare, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Wand2, MessageSquare, FileText, ExternalLink } from "lucide-react";
 import SettingsLayout from "@/components/SettingsLayout";
 
 const aiFeatures = [
@@ -8,19 +10,24 @@ const aiFeatures = [
     icon: Wand2,
     title: "Skill Generator",
     description: "Generate complete SKILL.md files from natural language descriptions",
-    status: "coming-soon" as const,
+    status: "active" as const,
+    href: "/generate",
   },
   {
     icon: MessageSquare,
     title: "Skill Chat",
     description: "Chat with an AI assistant about any skill to understand its capabilities",
-    status: "coming-soon" as const,
+    status: "active" as const,
+    href: "/browse",
+    note: "Available on skill detail pages",
   },
   {
     icon: FileText,
     title: "Skill Explainer",
     description: "Get plain-language explanations of what a skill does and how to use it",
-    status: "coming-soon" as const,
+    status: "active" as const,
+    href: "/browse",
+    note: "Available on skill detail pages",
   },
 ];
 
@@ -53,14 +60,25 @@ export default function SettingsAI() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium">{feature.title}</h3>
-                        <Badge variant="secondary" className="text-xs">
-                          Coming Soon
+                        <Badge variant="default" className="text-xs bg-green-600">
+                          Active
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         {feature.description}
                       </p>
+                      {feature.note && (
+                        <p className="text-xs text-muted-foreground mt-1 italic">
+                          {feature.note}
+                        </p>
+                      )}
                     </div>
+                    <Link href={feature.href}>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <ExternalLink className="h-3 w-3" />
+                        Try it
+                      </Button>
+                    </Link>
                   </div>
                 );
               })}
@@ -81,8 +99,30 @@ export default function SettingsAI() {
             <ul className="text-muted-foreground mt-4 space-y-2">
               <li>No additional API keys required</li>
               <li>Usage is included with your Replit account</li>
-              <li>AI features are optional - all core functionality works without them</li>
+              <li>Rate limited to 30 requests per hour to prevent abuse</li>
             </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Access</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/generate">
+                <Button className="gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  Open AI Generator
+                </Button>
+              </Link>
+              <Link href="/browse">
+                <Button variant="outline" className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Browse Skills (for Explainer & Chat)
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

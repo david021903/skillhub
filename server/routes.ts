@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { validateSkillMd } from "./validation";
 import { skillTemplates, getTemplateById } from "./skill-templates";
 import { checkDependencies, parseDependenciesFromSkillMd } from "./dependency-checker";
+import { explainSkill, generateSkill, chatAboutSkill, type ChatMessage } from "./ai-features";
 
 function generateToken(): string {
   return `sb_${crypto.randomBytes(32).toString("hex")}`;
@@ -959,11 +960,74 @@ export function registerRoutes(app: Express) {
   });
 
   app.get("/api/templates/:id", async (req: Request, res: Response) => {
-    const template = getTemplateById(req.params.id);
+    const templateId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const template = getTemplateById(templateId);
     if (!template) {
       return res.status(404).json({ message: "Template not found" });
     }
     res.json(template);
+  });
+
+  // AI-powered Skill Explainer
+  app.post("/api/skills/explain", async (req: Request, res: Response) => {
+    try {
+      const { skillMd } = req.body;
+      if (!skillMd) {
+        return res.status(400).json({ message: "SKILL.md content is required" });
+      }
+      const explanation = await explainSkill(skillMd);
+      res.json(explanation);
+    } catch (error) {
+      console.error("Error explaining skill:", error);
+      res.status(500).json({ message: "Failed to explain skill" });
+    }
+  });
+
+  // AI-powered Skill Generator
+  app.post("/api/skills/generate", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { prompt, category, complexity } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ message: "Prompt is required" });
+      }
+      const generated = await generateSkill(prompt, { category, complexity });
+      res.json(generated);
+    } catch (error) {
+      console.error("Error generating skill:", error);
+      res.status(500).json({ message: "Failed to generate skill" });
+    }
+  });
+
+  // AI-powered Skill Chat (streaming)
+  app.post("/api/skills/chat", async (req: Request, res: Response) => {
+    try {
+      const { skillMd, message, history } = req.body;
+      if (!skillMd || !message) {
+        return res.status(400).json({ message: "skillMd and message are required" });
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const chatHistory: ChatMessage[] = history || [];
+      const stream = chatAboutSkill(skillMd, message, chatHistory);
+
+      for await (const chunk of stream) {
+        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (error) {
+      console.error("Error in skill chat:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "Failed to process chat" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ message: "Failed to process chat" });
+      }
+    }
   });
 
   app.get("/api/cli/skills/:owner/:slug/install", async (req: Request, res: Response) => {

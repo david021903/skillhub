@@ -36,12 +36,23 @@ const publishLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  message: { message: "Too many AI requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/", apiLimiter);
 app.use("/api/tokens", authLimiter);
 app.use("/api/cli/skills/*/publish", publishLimiter);
+app.use("/api/skills/explain", aiLimiter);
+app.use("/api/skills/generate", aiLimiter);
+app.use("/api/skills/chat", aiLimiter);
 
 async function main() {
   await setupAuth(app);

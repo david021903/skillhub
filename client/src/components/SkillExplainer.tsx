@@ -3,8 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, BookOpen, Target, CheckCircle, Rocket, Key } from "lucide-react";
-import { Link } from "wouter";
+import { Loader2, Sparkles, BookOpen, Target, CheckCircle, Rocket } from "lucide-react";
 
 interface ExplainerResult {
   summary: string;
@@ -21,28 +20,14 @@ interface SkillExplainerProps {
 export function SkillExplainer({ skillMd }: SkillExplainerProps) {
   const [explanation, setExplanation] = useState<ExplainerResult | null>(null);
 
-  const [needsApiKey, setNeedsApiKey] = useState(false);
-
   const explainMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/skills/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ skillMd }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 400 && data.message?.toLowerCase().includes("api key")) {
-          setNeedsApiKey(true);
-          throw new Error(data.message);
-        }
-        if (res.status === 401) {
-          throw new Error("Please sign in to use AI features");
-        }
-        throw new Error(data.message || "Failed to explain skill");
-      }
-      setNeedsApiKey(false);
+      if (!res.ok) throw new Error("Failed to explain skill");
       return res.json() as Promise<ExplainerResult>;
     },
     onSuccess: (data) => setExplanation(data),
@@ -58,32 +43,10 @@ export function SkillExplainer({ skillMd }: SkillExplainerProps) {
             <p className="text-muted-foreground mb-4">
               Get a plain-English explanation of what this skill does
             </p>
-            {needsApiKey || explainMutation.error?.message?.toLowerCase().includes("api key") ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-center gap-2 text-amber-500">
-                  <Key className="h-4 w-4" />
-                  <p className="text-sm">OpenAI API key required to use AI features</p>
-                </div>
-                <Link href="/settings/ai">
-                  <span className="text-xs text-muted-foreground hover:text-primary underline cursor-pointer">
-                    Add your OpenAI API key in Settings
-                  </span>
-                </Link>
-              </div>
-            ) : explainMutation.error ? (
-              <div className="space-y-3">
-                <p className="text-sm text-destructive">{explainMutation.error.message}</p>
-                <Button onClick={() => explainMutation.mutate()}>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Try Again
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={() => explainMutation.mutate()}>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Explain This Skill
-              </Button>
-            )}
+            <Button onClick={() => explainMutation.mutate()}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Explain This Skill
+            </Button>
           </div>
         </CardContent>
       </Card>

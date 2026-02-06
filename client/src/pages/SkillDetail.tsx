@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SkillBadges, ValidationScore } from "@/components/SkillBadges";
 import { DependencyGraph } from "@/components/DependencyGraph";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { SkillExplainer } from "@/components/SkillExplainer";
+import { SkillChat } from "@/components/SkillChat";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Star, Download, Copy, ExternalLink, Clock, AlertCircle, RefreshCw, Github } from "lucide-react";
@@ -239,6 +241,10 @@ export default function SkillDetail() {
 
       <DependencyGraph dependencies={skill.dependencies} skillName={skill.name} />
 
+      {latestVersion?.skillMd && (
+        <SkillExplainer skillMd={latestVersion.skillMd} />
+      )}
+
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           {latestVersion?.skillMd && (
@@ -252,6 +258,10 @@ export default function SkillDetail() {
                 </pre>
               </CardContent>
             </Card>
+          )}
+          
+          {latestVersion?.skillMd && (
+            <SkillChat skillMd={latestVersion.skillMd} skillName={skill.name} />
           )}
         </div>
         

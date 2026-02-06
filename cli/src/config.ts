@@ -46,3 +46,10 @@ export function getUser(): ConfigSchema["user"] | undefined {
 export function setUser(user: ConfigSchema["user"]): void {
   config.set("user", user);
 }
+
+export function getConfig(): { token?: string; apiUrl: string } {
+  return {
+    token: config.get("token"),
+    apiUrl: config.get("apiUrl"),
+  };
+}

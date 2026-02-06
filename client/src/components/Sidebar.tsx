@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Menu,
   X,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
   const secondaryItems = [
     { href: "/browse?sort=trending", icon: TrendingUp, label: "Trending" },
+    { href: "/generate", icon: Wand2, label: "AI Generator" },
   ];
 
   const handleSearch = (e: React.FormEvent) => {

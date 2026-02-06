@@ -104,19 +104,19 @@ export default function Header({ mobileMenuButton }: HeaderProps) {
               
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                  <Link href={`/users/${(user as any)?.handle || 'me'}`} className="flex items-center gap-2 cursor-pointer">
                     <User className="h-4 w-4" />
                     Your Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/my-skills" className="flex items-center gap-2 cursor-pointer">
+                  <Link href={`/users/${(user as any)?.handle || 'me'}?tab=skills`} className="flex items-center gap-2 cursor-pointer">
                     <Package className="h-4 w-4" />
                     Your Skills
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/starred" className="flex items-center gap-2 cursor-pointer">
+                  <Link href={`/users/${(user as any)?.handle || 'me'}?tab=stars`} className="flex items-center gap-2 cursor-pointer">
                     <Star className="h-4 w-4" />
                     Your Stars
                   </Link>

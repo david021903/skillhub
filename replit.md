@@ -89,6 +89,11 @@ SkillBook is a full-stack "GitHub for OpenClaw Skills" registry platform where d
 - `POST /api/check-dependencies` - Check skill dependencies (bins, env, skills)
 - `POST /api/cli/check-dependencies` - CLI endpoint for dependency checking (requires read scope)
 
+### AI-Powered Features API
+- `POST /api/skills/explain` - AI skill explainer (returns summary, capabilities, use cases)
+- `POST /api/skills/generate` - AI skill generator (auth required, returns generated SKILL.md)
+- `POST /api/skills/chat` - AI skill chat (streaming SSE)
+
 ## Running the Project
 - Development: `npm run dev` (runs on port 5000)
 - Database push: `npm run db:push`
@@ -132,6 +137,23 @@ skillbook validate                # Validate SKILL.md before publishing
 Short alias `sb` available: `sb install owner/skill`
 
 ## Recent Changes
+- 2026-02-05: Comprehensive QA and bug fixes
+  - Fixed nested link issue in SettingsLayout (invalid DOM nesting)
+  - Fixed Profile page to use correct /api/my-stars endpoint
+  - Fixed CLI build errors (templates.ts api import, validate.ts undefined check)
+  - Updated tsconfig moduleResolution to 'bundler' for CLI
+  - Updated SettingsAI page to show AI features as Active with quick access links
+  - Added /users/:handle route for GitHub-like profile URLs
+  - Profile page now has Overview/Skills/Stars tabs
+  - User dropdown links now go to public profile instead of edit page
+- 2026-02-05: AI-Powered Features (Tasks 7-10)
+  - Skill Explainer: AI generates plain-English explanation of skills
+  - Skill Generator: Create SKILL.md from natural language prompts
+  - Skill Chat: Ask questions about skills with streaming responses
+  - Integration: SkillExplainer and SkillChat on SkillDetail page
+  - Rate limiting: 30 requests/hour on AI endpoints to prevent abuse
+  - UI: AI Generator link in sidebar, /generate page
+  - Uses Replit AI Integrations (gpt-5.1, billed to Replit credits)
 - 2026-02-05: GitHub-like platform improvements
   - Health badges: Validation status, version, stars, downloads, license display
   - Dependency graph: Visual display of required skills, bins, and env vars

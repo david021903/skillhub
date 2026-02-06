@@ -16,7 +16,6 @@ import {
   TrendingUp,
   Menu,
   X,
-  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +59,6 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
   const secondaryItems = [
     { href: "/browse?sort=trending", icon: TrendingUp, label: "Trending" },
-    { href: "/generate", icon: Wand2, label: "AI Generator" },
   ];
 
   const handleSearch = (e: React.FormEvent) => {
@@ -77,12 +75,17 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
           {!collapsed && (
-            <Link href="/" className="flex items-center">
-              <img src="/logo-dark.png" alt="SkillHub" className="h-7 dark:invert" />
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-lg">🦞</span>
+              </div>
+              <span className="font-bold text-xl">SkillBook</span>
             </Link>
           )}
           {collapsed && (
-            <img src="/icon.png" alt="SkillHub" className="w-8 h-8 mx-auto dark:invert" />
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
+              <span className="text-lg">🦞</span>
+            </div>
           )}
           <Button
             variant="ghost"

@@ -8,7 +8,7 @@ export default function Starred() {
   const { data: starredSkills = [], isLoading, error } = useQuery({
     queryKey: ["/api/my-stars"],
     queryFn: async () => {
-      const res = await fetch("/api/my-stars", { credentials: "include" });
+      const res = await fetch("/api/my-stars");
       if (!res.ok) {
         if (res.status === 401) return [];
         throw new Error("Failed to fetch starred skills");

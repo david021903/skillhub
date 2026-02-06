@@ -81,6 +81,14 @@ SkillBook is a full-stack "GitHub for OpenClaw Skills" registry platform where d
 - `POST /api/tokens` - Create new token
 - `DELETE /api/tokens/:id` - Revoke token
 
+### Templates API
+- `GET /api/templates` - List all starter templates
+- `GET /api/templates/:id` - Get template details with full SKILL.md content
+
+### Dependency Checker API
+- `POST /api/check-dependencies` - Check skill dependencies (bins, env, skills)
+- `POST /api/cli/check-dependencies` - CLI endpoint for dependency checking (requires read scope)
+
 ## Running the Project
 - Development: `npm run dev` (runs on port 5000)
 - Database push: `npm run db:push`

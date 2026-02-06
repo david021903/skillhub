@@ -7,6 +7,8 @@ import multer from "multer";
 import matter from "gray-matter";
 import crypto from "crypto";
 import { validateSkillMd } from "./validation";
+import { skillTemplates, getTemplateById } from "./skill-templates";
+import { checkDependencies, parseDependenciesFromSkillMd } from "./dependency-checker";
 
 function generateToken(): string {
   return `sb_${crypto.randomBytes(32).toString("hex")}`;
@@ -487,6 +489,52 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.get("/api/my-stars", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const starred = await db.select({
+        id: skills.id,
+        name: skills.name,
+        slug: skills.slug,
+        description: skills.description,
+        stars: skills.stars,
+        downloads: skills.downloads,
+        ownerId: skills.ownerId,
+        isPublic: skills.isPublic,
+        createdAt: skills.createdAt,
+        updatedAt: skills.updatedAt,
+        ownerHandle: users.handle,
+      })
+        .from(skillStars)
+        .innerJoin(skills, eq(skillStars.skillId, skills.id))
+        .innerJoin(users, eq(skills.ownerId, users.id))
+        .where(eq(skillStars.userId, userId))
+        .orderBy(desc(skillStars.createdAt))
+        .limit(limit);
+
+      const result = starred.map(skill => ({
+        id: skill.id,
+        name: skill.name,
+        slug: skill.slug,
+        description: skill.description,
+        stars: skill.stars,
+        downloads: skill.downloads,
+        ownerId: skill.ownerId,
+        isPublic: skill.isPublic,
+        createdAt: skill.createdAt,
+        updatedAt: skill.updatedAt,
+        owner: { id: skill.ownerId, handle: skill.ownerHandle },
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching starred skills:", error);
+      res.status(500).json({ message: "Failed to fetch starred skills" });
+    }
+  });
+
   app.put("/api/skills/:skillId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
@@ -861,6 +909,61 @@ export function registerRoutes(app: Express) {
       console.error("Error validating:", error);
       res.status(500).json({ message: "Failed to validate" });
     }
+  });
+
+  app.post("/api/check-dependencies", async (req: Request, res: Response) => {
+    try {
+      const { skillMd, installedSkills } = req.body;
+
+      if (!skillMd) {
+        return res.status(400).json({ message: "SKILL.md content is required" });
+      }
+
+      const dependencies = parseDependenciesFromSkillMd(skillMd);
+      const report = await checkDependencies(dependencies, installedSkills || []);
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error checking dependencies:", error);
+      res.status(500).json({ message: "Failed to check dependencies" });
+    }
+  });
+
+  app.post("/api/cli/check-dependencies", authenticateToken, requireScope("read"), async (req: Request, res: Response) => {
+    try {
+      const { skillMd, installedSkills } = req.body;
+
+      if (!skillMd) {
+        return res.status(400).json({ message: "SKILL.md content is required" });
+      }
+
+      const dependencies = parseDependenciesFromSkillMd(skillMd);
+      const report = await checkDependencies(dependencies, installedSkills || []);
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error checking dependencies:", error);
+      res.status(500).json({ message: "Failed to check dependencies" });
+    }
+  });
+
+  app.get("/api/templates", async (req: Request, res: Response) => {
+    res.json(skillTemplates.map(t => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      icon: t.icon,
+      category: t.category,
+      tags: t.tags,
+    })));
+  });
+
+  app.get("/api/templates/:id", async (req: Request, res: Response) => {
+    const template = getTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+    res.json(template);
   });
 
   app.get("/api/cli/skills/:owner/:slug/install", async (req: Request, res: Response) => {

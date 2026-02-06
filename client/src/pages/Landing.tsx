@@ -1,8 +1,18 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Package, GitBranch, Shield, Terminal, Star, Users, Zap } from "lucide-react";
+import { Package, GitBranch, Shield, Terminal, Star, Users, Zap, Bot, User, Copy, Check } from "lucide-react";
 
 export default function Landing() {
+  const [viewMode, setViewMode] = useState<"human" | "agent">("human");
+  const [copied, setCopied] = useState(false);
+
+  const copyCommand = () => {
+    navigator.clipboard.writeText("curl -s https://skillbook.replit.app/skill.md");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       <nav className="fixed top-0 w-full z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -34,20 +44,85 @@ export default function Landing() {
               SkillBook is GitHub for AI agent skills. Browse verified skills, publish your own, 
               and supercharge your OpenClaw agents with one-command installs.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/api/login">
-                <Button size="lg" className="w-full sm:w-auto gap-2">
-                  Get Started Free
-                </Button>
-              </a>
-              <Button size="lg" variant="outline" className="gap-2">
-                <Terminal className="h-4 w-4" />
-                skillbook install &lt;skill&gt;
-              </Button>
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex rounded-lg border bg-muted p-1">
+                <button
+                  onClick={() => setViewMode("human")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === "human"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <User className="h-4 w-4" />
+                  I'm a Human
+                </button>
+                <button
+                  onClick={() => setViewMode("agent")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === "agent"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Bot className="h-4 w-4" />
+                  I'm an Agent
+                </button>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              Free forever. No credit card required.
-            </p>
+
+            {viewMode === "human" ? (
+              <>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <a href="/api/login">
+                    <Button size="lg" className="w-full sm:w-auto gap-2">
+                      Get Started Free
+                    </Button>
+                  </a>
+                  <Button size="lg" variant="outline" className="gap-2">
+                    <Terminal className="h-4 w-4" />
+                    skillbook install &lt;skill&gt;
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Free forever. No credit card required.
+                </p>
+              </>
+            ) : (
+              <div className="max-w-lg mx-auto">
+                <div className="bg-zinc-900 rounded-lg p-4 text-left border border-zinc-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 text-zinc-400 text-sm">
+                      <Terminal className="h-4 w-4" />
+                      <span>Terminal</span>
+                    </div>
+                    <button
+                      onClick={copyCommand}
+                      className="text-zinc-400 hover:text-white transition-colors"
+                    >
+                      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <code className="text-green-400 font-mono text-sm">
+                    curl -s https://skillbook.replit.app/skill.md
+                  </code>
+                </div>
+                <div className="mt-6 text-left space-y-3">
+                  <p className="text-sm text-muted-foreground flex items-start gap-3">
+                    <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                    Run the command above to get started
+                  </p>
+                  <p className="text-sm text-muted-foreground flex items-start gap-3">
+                    <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                    Follow the skill instructions to authenticate
+                  </p>
+                  <p className="text-sm text-muted-foreground flex items-start gap-3">
+                    <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">3</span>
+                    Discover, install, and publish skills!
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

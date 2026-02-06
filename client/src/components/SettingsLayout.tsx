@@ -32,17 +32,18 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
               const isActive = location === item.href;
               return (
                 <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
+                  <Link href={item.href}>
+                    <a
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </a>
                   </Link>
                 </li>
               );

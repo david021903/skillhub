@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,46 +7,90 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { skillTemplates as fallbackTemplates, templateCategories as fallbackCategories, type SkillTemplate } from "@/lib/skill-templates";
+import { cn } from "@/lib/utils";
+import { 
+  FileText, 
+  Globe, 
+  Plug, 
+  Terminal, 
+  Folder, 
+  BarChart3, 
+  Bell, 
+  Code,
+  Check
+} from "lucide-react";
 
-const SKILL_TEMPLATE = `---
-name: my-skill
-description: A brief description of what this skill does
-metadata:
-  openclaw:
-    requires:
-      bins: []
-      env: []
----
-
-# My Skill
-
-## Overview
-One sentence summary of what the skill does.
-
-## Capabilities
-- Bullet list of capabilities
-
-## Permissions & Safety
-- Required permissions (filesystem/network/etc)
-- Safety constraints
-
-## Usage Examples
-\`\`\`bash
-# example usage
-\`\`\`
-`;
+const iconMap: Record<string, typeof FileText> = {
+  file: FileText,
+  globe: Globe,
+  plug: Plug,
+  terminal: Terminal,
+  folder: Folder,
+  chart: BarChart3,
+  bell: Bell,
+  code: Code,
+};
 
 export default function CreateSkill() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const { data: apiTemplates, isLoading: templatesLoading } = useQuery({
+    queryKey: ["/api/templates"],
+    queryFn: async () => {
+      const res = await fetch("/api/templates");
+      if (!res.ok) throw new Error("Failed to fetch templates");
+      return res.json() as Promise<Omit<SkillTemplate, "skillMd">[]>;
+    },
+  });
+
+  const skillTemplates: Omit<SkillTemplate, "skillMd">[] = apiTemplates || fallbackTemplates;
+  const templateCategories = [...new Set(skillTemplates.map(t => t.category))];
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("blank");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [version, setVersion] = useState("0.1.0");
-  const [skillMd, setSkillMd] = useState(SKILL_TEMPLATE);
+  const [skillMd, setSkillMd] = useState(fallbackTemplates[0].skillMd);
+  const [step, setStep] = useState<"template" | "details">("template");
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+
+  const selectedTemplate = skillTemplates.find(t => t.id === selectedTemplateId) || skillTemplates[0];
+
+  const selectTemplate = (template: Omit<SkillTemplate, "skillMd">) => {
+    setSelectedTemplateId(template.id);
+    setTags(template.tags.join(", "));
+  };
+
+  const loadTemplateContent = async () => {
+    setLoadingTemplate(true);
+    try {
+      const res = await fetch(`/api/templates/${selectedTemplateId}`);
+      if (res.ok) {
+        const data = await res.json() as SkillTemplate;
+        setSkillMd(data.skillMd);
+        setTags(data.tags.join(", "));
+      } else {
+        const fallback = fallbackTemplates.find(t => t.id === selectedTemplateId);
+        if (fallback) {
+          setSkillMd(fallback.skillMd);
+          setTags(fallback.tags.join(", "));
+        }
+      }
+    } catch {
+      const fallback = fallbackTemplates.find(t => t.id === selectedTemplateId);
+      if (fallback) {
+        setSkillMd(fallback.skillMd);
+        setTags(fallback.tags.join(", "));
+      }
+    }
+    setLoadingTemplate(false);
+    setStep("details");
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -100,14 +144,100 @@ export default function CreateSkill() {
     createMutation.mutate();
   };
 
+  if (step === "template") {
+    if (templatesLoading) {
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-48 bg-muted rounded"></div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-24 bg-muted rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Create New Skill</h1>
+          <p className="text-muted-foreground mt-2">
+            Choose a template to get started quickly
+          </p>
+        </div>
+
+        {templateCategories.map((category) => (
+          <div key={category} className="space-y-3">
+            <h2 className="text-lg font-semibold">{category}</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {skillTemplates
+                .filter((t) => t.category === category)
+                .map((template) => {
+                  const Icon = iconMap[template.icon] || FileText;
+                  const isSelected = selectedTemplateId === template.id;
+                  return (
+                    <button
+                      key={template.id}
+                      onClick={() => selectTemplate(template)}
+                      className={cn(
+                        "flex items-start gap-3 p-4 rounded-lg border text-left transition-all",
+                        isSelected
+                          ? "border-primary bg-primary/5 ring-2 ring-primary"
+                          : "hover:border-primary/50 hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "p-2 rounded-lg",
+                        isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
+                      )}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{template.name}</span>
+                          {isSelected && <Check className="h-4 w-4 text-primary" />}
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {template.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+
+        <div className="flex justify-end gap-4 pt-4">
+          <Button variant="outline" onClick={() => navigate("/")}>
+            Cancel
+          </Button>
+          <Button onClick={loadTemplateContent} disabled={loadingTemplate}>
+            {loadingTemplate ? "Loading..." : `Continue with ${selectedTemplate?.name || "template"}`}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Create New Skill</CardTitle>
-          <CardDescription>
-            Publish a new skill to the SkillBook registry for the OpenClaw community.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Create New Skill</CardTitle>
+              <CardDescription>
+                Using template: {selectedTemplate.name}
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setStep("template")}>
+              Change Template
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -179,8 +309,8 @@ export default function CreateSkill() {
             </div>
 
             <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate("/")}>
-                Cancel
+              <Button type="button" variant="outline" onClick={() => setStep("template")}>
+                Back
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending ? "Publishing..." : "Publish Skill"}

@@ -48,6 +48,12 @@ async function main() {
   registerAuthRoutes(app);
   registerRoutes(app);
 
+  // Serve skill.md for agents (curl -s https://skillbook.replit.app/skill.md)
+  app.get("/skill.md", (_req, res) => {
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.sendFile(path.join(__dirname, "../public/skill.md"));
+  });
+
   if (process.env.NODE_ENV === "production") {
     app.use(express.static(path.join(__dirname, "../public")));
     app.get("*", (_req, res) => {

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
-import { get, post } from "../api.js";
+import { api } from "../api.js";
 import fs from "fs";
 import path from "path";
 
@@ -25,8 +25,8 @@ export function templateCommands(program: Command) {
     .option("-c, --category <category>", "Filter by category")
     .action(async (options) => {
       try {
-        const response = await get<Template[]>("/api/templates");
-        let templateList: Template[] = response.data || [];
+        const response = await api.get("/api/templates");
+        let templateList: Template[] = response.data;
 
         if (options.category) {
           templateList = templateList.filter(
@@ -56,7 +56,7 @@ export function templateCommands(program: Command) {
         }
 
         console.log(
-          chalk.dim(`\nUse ${chalk.white("shsc templates init <template-id>")} to create a new skill from a template`)
+          chalk.dim(`\nUse ${chalk.white("skillbook templates init <template-id>")} to create a new skill from a template`)
         );
       } catch (error: any) {
         console.error(chalk.red("Failed to fetch templates:"), error.message);
@@ -72,8 +72,7 @@ export function templateCommands(program: Command) {
     .option("-f, --force", "Overwrite existing file")
     .action(async (templateId, options) => {
       try {
-        const response = await get<Template>(`/api/templates/${templateId}`);
-        if (!response.data) throw new Error("Template not found");
+        const response = await api.get(`/api/templates/${templateId}`);
         const template: Template = response.data;
 
         const outputPath = path.resolve(options.output);
@@ -91,12 +90,12 @@ export function templateCommands(program: Command) {
         console.log(chalk.green(`Created ${outputPath} from template "${template.name}"`));
         console.log(chalk.dim("\nNext steps:"));
         console.log(chalk.dim("  1. Edit SKILL.md with your skill details"));
-        console.log(chalk.dim("  2. Run: shsc validate"));
-        console.log(chalk.dim("  3. Run: shsc publish"));
+        console.log(chalk.dim("  2. Run: skillbook validate"));
+        console.log(chalk.dim("  3. Run: skillbook publish"));
       } catch (error: any) {
         if (error.response?.status === 404) {
           console.error(chalk.red(`Template not found: ${templateId}`));
-          console.log(chalk.dim("Run: shsc templates list"));
+          console.log(chalk.dim("Run: skillbook templates list"));
         } else {
           console.error(chalk.red("Failed to fetch template:"), error.message);
         }
@@ -110,8 +109,7 @@ export function templateCommands(program: Command) {
     .argument("<template-id>", "Template ID to show")
     .action(async (templateId) => {
       try {
-        const response = await get<Template>(`/api/templates/${templateId}`);
-        if (!response.data) throw new Error("Template not found");
+        const response = await api.get(`/api/templates/${templateId}`);
         const template: Template = response.data;
 
         console.log(chalk.bold.blue(template.name));

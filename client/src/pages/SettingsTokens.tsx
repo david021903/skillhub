@@ -26,7 +26,7 @@ export default function SettingsTokens() {
   const { data: tokens = [], isLoading: tokensLoading } = useQuery({
     queryKey: ["/api/tokens"],
     queryFn: async () => {
-      const res = await fetch("/api/tokens", { credentials: "include" });
+      const res = await fetch("/api/tokens");
       if (!res.ok) throw new Error("Failed to fetch tokens");
       return res.json();
     },
@@ -37,7 +37,6 @@ export default function SettingsTokens() {
       const res = await fetch("/api/tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ name: tokenName }),
       });
       if (!res.ok) {
@@ -59,7 +58,7 @@ export default function SettingsTokens() {
 
   const revokeToken = useMutation({
     mutationFn: async (tokenId: string) => {
-      const res = await fetch(`/api/tokens/${tokenId}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/api/tokens/${tokenId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to revoke token");
       return res.json();
     },
@@ -88,7 +87,7 @@ export default function SettingsTokens() {
             API Tokens
           </CardTitle>
           <CardDescription>
-            Create tokens to authenticate with the SkillHub CLI
+            Create tokens to authenticate with the SkillBook CLI
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -97,8 +96,8 @@ export default function SettingsTokens() {
               <Terminal className="h-4 w-4" />
               CLI Installation
             </div>
-            <code className="text-sm block">npm install -g shsc</code>
-            <code className="text-sm block text-muted-foreground">shsc auth login --token YOUR_TOKEN</code>
+            <code className="text-sm block">npm install -g skillbook-cli</code>
+            <code className="text-sm block text-muted-foreground">skillbook auth login --token YOUR_TOKEN</code>
           </div>
 
           {newToken && (

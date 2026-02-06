@@ -6,6 +6,8 @@ import { authCommands } from "./commands/auth.js";
 import { skillCommands } from "./commands/skills.js";
 import { validateCommands } from "./commands/validate.js";
 import { searchCommands } from "./commands/search.js";
+import { templateCommands } from "./commands/templates.js";
+import { checkCommands } from "./commands/check.js";
 
 const program = new Command();
 
@@ -18,6 +20,8 @@ authCommands(program);
 skillCommands(program);
 validateCommands(program);
 searchCommands(program);
+templateCommands(program);
+checkCommands(program);
 
 program
   .command("help")

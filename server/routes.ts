@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
-import { skills, skillVersions, skillValidations, skillStars, skillActivities, users, apiTokens } from "@shared/schema";
+import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, users, apiTokens } from "@shared/schema";
 import { eq, desc, and, ilike, sql, or } from "drizzle-orm";
 import { isAuthenticated } from "./replit_integrations/auth";
 import multer from "multer";
@@ -79,7 +79,26 @@ export function registerRoutes(app: Express) {
     try {
       const { search, tag, verified, sort = "latest", limit = "20", offset = "0" } = req.query;
       
-      let query = db.select({
+      const conditions: any[] = [eq(skills.isPublic, true)];
+      
+      if (search) {
+        conditions.push(
+          or(
+            ilike(skills.name, `%${search}%`),
+            ilike(skills.description, `%${search}%`)
+          )
+        );
+      }
+
+      if (verified === "true") {
+        conditions.push(eq(skills.isVerified, true));
+      }
+
+      const orderBy = sort === "stars" ? desc(skills.stars) 
+        : sort === "downloads" ? desc(skills.downloads) 
+        : desc(skills.createdAt);
+      
+      const result = await db.select({
         id: skills.id,
         name: skills.name,
         slug: skills.slug,
@@ -99,29 +118,10 @@ export function registerRoutes(app: Express) {
       })
       .from(skills)
       .leftJoin(users, eq(skills.ownerId, users.id))
-      .where(eq(skills.isPublic, true));
-
-      if (search) {
-        query = query.where(
-          or(
-            ilike(skills.name, `%${search}%`),
-            ilike(skills.description, `%${search}%`)
-          )
-        ) as any;
-      }
-
-      if (verified === "true") {
-        query = query.where(eq(skills.isVerified, true)) as any;
-      }
-
-      const orderBy = sort === "stars" ? desc(skills.stars) 
-        : sort === "downloads" ? desc(skills.downloads) 
-        : desc(skills.createdAt);
-      
-      const result = await query
-        .orderBy(orderBy)
-        .limit(parseInt(limit as string))
-        .offset(parseInt(offset as string));
+      .where(and(...conditions))
+      .orderBy(orderBy)
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
 
       res.json(result);
     } catch (error) {
@@ -132,7 +132,8 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/skills/:owner/:slug", async (req: Request, res: Response) => {
     try {
-      const { owner, slug } = req.params;
+      const owner = req.params.owner as string;
+      const slug = req.params.slug as string;
       
       const ownerUser = await db.select().from(users).where(
         or(eq(users.handle, owner), eq(users.id, owner))
@@ -204,7 +205,9 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/skills/:owner/:slug/versions/:version", async (req: Request, res: Response) => {
     try {
-      const { owner, slug, version } = req.params;
+      const owner = req.params.owner as string;
+      const slug = req.params.slug as string;
+      const version = req.params.version as string;
       
       const ownerUser = await db.select().from(users).where(
         or(eq(users.handle, owner), eq(users.id, owner))
@@ -446,7 +449,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/skills/:skillId/activity", async (req: Request, res: Response) => {
     try {
-      const { skillId } = req.params;
+      const skillId = req.params.skillId as string;
       const limit = parseInt(req.query.limit as string) || 20;
       
       const activities = await db.select({
@@ -471,6 +474,96 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Error fetching skill activity:", error);
       res.status(500).json({ message: "Failed to fetch activity" });
+    }
+  });
+
+  app.get("/api/skills/:skillId/comments", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      
+      const comments = await db.select({
+        id: skillComments.id,
+        content: skillComments.content,
+        parentId: skillComments.parentId,
+        isEdited: skillComments.isEdited,
+        createdAt: skillComments.createdAt,
+        user: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          handle: users.handle,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+        .from(skillComments)
+        .leftJoin(users, eq(skillComments.userId, users.id))
+        .where(eq(skillComments.skillId, skillId))
+        .orderBy(desc(skillComments.createdAt));
+      
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/skills/:skillId/comments", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      const userId = req.user.claims.sub;
+      const { content, parentId } = req.body;
+
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ message: "Comment content is required" });
+      }
+
+      if (content.length > 2000) {
+        return res.status(400).json({ message: "Comment is too long (max 2000 characters)" });
+      }
+
+      const [comment] = await db.insert(skillComments)
+        .values({ skillId, userId, content: content.trim(), parentId: parentId || null })
+        .returning();
+
+      await db.insert(skillActivities)
+        .values({
+          skillId,
+          userId,
+          action: "comment",
+          details: { commentId: comment.id },
+        });
+
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Error creating comment:", error);
+      res.status(500).json({ message: "Failed to create comment" });
+    }
+  });
+
+  app.delete("/api/comments/:commentId", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const commentId = req.params.commentId as string;
+      const userId = req.user.claims.sub;
+
+      const [comment] = await db.select()
+        .from(skillComments)
+        .where(eq(skillComments.id, commentId))
+        .limit(1);
+
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+
+      if (comment.userId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own comments" });
+      }
+
+      await db.delete(skillComments).where(eq(skillComments.id, commentId));
+
+      res.json({ message: "Comment deleted" });
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ message: "Failed to delete comment" });
     }
   });
 
@@ -587,7 +680,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/users/:handle", async (req: Request, res: Response) => {
     try {
-      const { handle } = req.params;
+      const handle = req.params.handle as string;
       
       const user = await db.select({
         id: users.id,
@@ -1032,8 +1125,9 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/cli/skills/:owner/:slug/install", async (req: Request, res: Response) => {
     try {
-      const { owner, slug } = req.params;
-      const { version: requestedVersion } = req.query;
+      const owner = req.params.owner as string;
+      const slug = req.params.slug as string;
+      const requestedVersion = req.query.version as string | undefined;
       
       const ownerUser = await db.select().from(users).where(
         or(eq(users.handle, owner), eq(users.id, owner))
@@ -1100,7 +1194,18 @@ export function registerRoutes(app: Express) {
     try {
       const { q, limit = "20" } = req.query;
       
-      let query = db.select({
+      const conditions: any[] = [eq(skills.isPublic, true)];
+      
+      if (q) {
+        conditions.push(
+          or(
+            ilike(skills.name, `%${q}%`),
+            ilike(skills.description, `%${q}%`)
+          )
+        );
+      }
+
+      const result = await db.select({
         name: skills.name,
         slug: skills.slug,
         description: skills.description,
@@ -1110,20 +1215,9 @@ export function registerRoutes(app: Express) {
       })
       .from(skills)
       .leftJoin(users, eq(skills.ownerId, users.id))
-      .where(eq(skills.isPublic, true));
-
-      if (q) {
-        query = query.where(
-          or(
-            ilike(skills.name, `%${q}%`),
-            ilike(skills.description, `%${q}%`)
-          )
-        ) as any;
-      }
-
-      const result = await query
-        .orderBy(desc(skills.stars))
-        .limit(parseInt(limit as string));
+      .where(and(...conditions))
+      .orderBy(desc(skills.stars))
+      .limit(parseInt(limit as string));
 
       res.json(result);
     } catch (error) {

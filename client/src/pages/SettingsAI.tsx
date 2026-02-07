@@ -92,7 +92,7 @@ export default function SettingsAI() {
           </CardHeader>
           <CardContent className="prose prose-sm dark:prose-invert max-w-none">
             <p className="text-muted-foreground">
-              SkillBook's AI features are powered by Replit AI, providing intelligent assistance 
+              ClawSkillHub's AI features are powered by Replit AI, providing intelligent assistance 
               for skill creation and discovery. All AI processing happens securely through Replit's 
               infrastructure.
             </p>

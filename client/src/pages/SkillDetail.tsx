@@ -9,6 +9,7 @@ import { DependencyGraph } from "@/components/DependencyGraph";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { SkillExplainer } from "@/components/SkillExplainer";
 import { SkillChat } from "@/components/SkillChat";
+import { SkillComments } from "@/components/SkillComments";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Star, Download, Copy, ExternalLink, Clock, AlertCircle, RefreshCw, Github } from "lucide-react";
@@ -51,7 +52,7 @@ export default function SkillDetail() {
 
   const copyInstall = () => {
     const version = skill?.versions?.[0]?.version || "latest";
-    navigator.clipboard.writeText(`skillbook install ${params?.owner}/${params?.slug}@${version}`);
+    navigator.clipboard.writeText(`csh install ${params?.owner}/${params?.slug}@${version}`);
     toast({ title: "Copied!", description: "Install command copied to clipboard" });
   };
 
@@ -206,7 +207,7 @@ export default function SkillDetail() {
         </CardHeader>
         <CardContent>
           <code className="block bg-muted p-4 rounded-lg font-mono text-sm">
-            skillbook install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
+            csh install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
           </code>
         </CardContent>
       </Card>
@@ -268,6 +269,10 @@ export default function SkillDetail() {
         <div className="space-y-6">
           <ActivityFeed skillId={skill.id} />
         </div>
+      </div>
+      
+      <div className="mt-8">
+        <SkillComments skillId={skill.id} currentUserId={user?.id} />
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ export default function Landing() {
   const [copied, setCopied] = useState(false);
 
   const copyCommand = () => {
-    navigator.clipboard.writeText("curl -s https://skillbook.replit.app/skill.md");
+    navigator.clipboard.writeText("curl -s https://clawskillhub.com/skill.md");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -21,7 +21,7 @@ export default function Landing() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-lg">🦞</span>
             </div>
-            <span className="font-bold text-xl">SkillBook</span>
+            <span className="font-bold text-xl">ClawSkillHub</span>
           </div>
           <a href="/api/login">
             <Button>Sign In</Button>
@@ -41,7 +41,7 @@ export default function Landing() {
               <span className="text-primary block mt-2">Agent Skills</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              SkillBook is GitHub for AI agent skills. Browse verified skills, publish your own, 
+              ClawSkillHub is GitHub for AI agent skills. Browse verified skills, publish your own, 
               and supercharge your OpenClaw agents with one-command installs.
             </p>
             <div className="flex justify-center mb-6">
@@ -81,7 +81,7 @@ export default function Landing() {
                   </a>
                   <Button size="lg" variant="outline" className="gap-2">
                     <Terminal className="h-4 w-4" />
-                    skillbook install &lt;skill&gt;
+                    csh install &lt;skill&gt;
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-4">
@@ -104,7 +104,7 @@ export default function Landing() {
                     </button>
                   </div>
                   <code className="text-green-400 font-mono text-sm">
-                    curl -s https://skillbook.replit.app/skill.md
+                    curl -s https://clawskillhub.com/skill.md
                   </code>
                 </div>
                 <div className="mt-6 text-left space-y-3">
@@ -192,7 +192,7 @@ export default function Landing() {
 
         <footer className="border-t bg-muted/30 py-8">
           <div className="container px-4 text-center text-sm text-muted-foreground">
-            <p>&copy; 2025 SkillBook. Built for the OpenClaw community.</p>
+            <p>&copy; 2025 ClawSkillHub. Built for the OpenClaw community.</p>
           </div>
         </footer>
       </main>

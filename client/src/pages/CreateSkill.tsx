@@ -18,7 +18,8 @@ import {
   BarChart3, 
   Bell, 
   Code,
-  Check
+  Check,
+  Lock
 } from "lucide-react";
 
 const iconMap: Record<string, typeof FileText> = {
@@ -58,6 +59,7 @@ export default function CreateSkill() {
   const [skillMd, setSkillMd] = useState(fallbackTemplates[0].skillMd);
   const [step, setStep] = useState<"template" | "details">("template");
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
 
   const selectedTemplate = skillTemplates.find(t => t.id === selectedTemplateId) || skillTemplates[0];
 
@@ -101,6 +103,7 @@ export default function CreateSkill() {
           name,
           slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
           description,
+          isPublic,
           tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         }),
       });
@@ -271,6 +274,44 @@ export default function CreateSkill() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="A brief description of your skill"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Visibility</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPublic(true)}
+                  className={cn(
+                    "flex-1 flex items-center gap-2 p-3 rounded-lg border transition-all",
+                    isPublic
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                      : "border-border hover:border-muted-foreground/50"
+                  )}
+                >
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-left">
+                    <div className="font-medium text-sm">Public</div>
+                    <div className="text-xs text-muted-foreground">Anyone can see this skill</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPublic(false)}
+                  className={cn(
+                    "flex-1 flex items-center gap-2 p-3 rounded-lg border transition-all",
+                    !isPublic
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                      : "border-border hover:border-muted-foreground/50"
+                  )}
+                >
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-left">
+                    <div className="font-medium text-sm">Private</div>
+                    <div className="text-xs text-muted-foreground">Only you can see this skill</div>
+                  </div>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

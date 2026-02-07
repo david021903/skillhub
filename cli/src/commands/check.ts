@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { getConfig } from "../config.js";
 
-const API_BASE = process.env.SKILLBOOK_API || "https://skillbook.replit.app";
+const API_BASE = process.env.CLAWSKILLHUB_API || "https://clawskillhub.com";
 
 interface DependencyCheckResult {
   name: string;
@@ -115,7 +115,7 @@ export function checkCommands(program: Command) {
               : chalk.red(result.name);
             console.log(`  ${icon} ${name}`);
             if (!result.available) {
-              console.log(chalk.dim(`      Run: skillbook install ${result.name}`));
+              console.log(chalk.dim(`      Run: csh install ${result.name}`));
             }
           }
           console.log();
@@ -216,7 +216,7 @@ export function checkCommands(program: Command) {
         if (missingSkills.length > 0) {
           console.log(chalk.bold.blue("Skills:"));
           for (const skill of missingSkills) {
-            console.log(`  skillbook install ${skill.name}`);
+            console.log(`  csh install ${skill.name}`);
           }
           console.log();
         }

@@ -1,7 +1,9 @@
-# SkillBook - OpenClaw Skills Registry
+# ClawSkillHub - OpenClaw Skills Registry
 
 ## Overview
-SkillBook is a full-stack "GitHub for OpenClaw Skills" registry platform where developers can discover, publish, and install AI agent skills. The platform supports skill versioning, validation, search, user profiles, and one-command installation similar to npm/GitHub workflows.
+ClawSkillHub is a full-stack "GitHub for OpenClaw Skills" registry platform where developers can discover, publish, and install AI agent skills. The platform supports skill versioning, validation, search, user profiles, and one-command installation similar to npm/GitHub workflows.
+
+**Domain**: clawskillhub.com
 
 ## Tech Stack
 - **Backend**: Node.js + Express.js + TypeScript
@@ -54,7 +56,7 @@ SkillBook is a full-stack "GitHub for OpenClaw Skills" registry platform where d
 4. **Validation Pipeline**: Automatic security checks and best practice validation
 5. **User Profiles**: Public profiles with skill showcase
 6. **Star System**: Star/favorite skills you like
-7. **CLI Tool (skillbook/sb)**: Command-line interface for developers
+7. **CLI Tool (clawskillhub/csh)**: Command-line interface for developers
 8. **API Tokens**: Scope-based tokens for CLI authentication
 
 ## API Endpoints
@@ -115,28 +117,36 @@ metadata:
 ...content...
 ```
 
-## CLI Tool (skillbook)
+## CLI Tool (clawskillhub)
 The CLI provides a GitHub-like experience for skill management:
 ```bash
 # Authentication
-skillbook auth login              # Login with API token
-skillbook auth logout             # Logout and clear credentials
-skillbook auth whoami             # Show current user
+csh auth login              # Login with API token
+csh auth logout             # Logout and clear credentials
+csh auth whoami             # Show current user
 
 # Skill Management
-skillbook init                    # Initialize new skill in current directory
-skillbook publish                 # Publish skill to registry
-skillbook install owner/skill     # Install skill to .local/skills
+csh init                    # Initialize new skill in current directory
+csh publish                 # Publish skill to registry
+csh install owner/skill     # Install skill to .local/skills
 
 # Discovery
-skillbook search <query>          # Search for skills
-skillbook browse                  # Interactive skill browser
-skillbook validate                # Validate SKILL.md before publishing
+csh search <query>          # Search for skills
+csh browse                  # Interactive skill browser
+csh validate                # Validate SKILL.md before publishing
 ```
 
-Short alias `sb` available: `sb install owner/skill`
+Short alias `csh` available: `csh install owner/skill`
 
 ## Recent Changes
+- 2026-02-05: Added private/public skill visibility toggle and comments system
+  - CreateSkill form now has GitHub-like visibility selector (Public/Private)
+  - Comments system: skill_comments table, API endpoints (GET, POST, DELETE)
+  - SkillComments component on skill detail pages with create/delete functionality
+- 2026-02-05: Rebranded from SkillBook to ClawSkillHub
+  - Updated package names, CLI commands, and all references
+  - Changed domain from skillbook.replit.app to clawskillhub.com
+  - CLI renamed from skillbook/sb to clawskillhub/csh
 - 2026-02-05: Comprehensive QA and bug fixes
   - Fixed nested link issue in SettingsLayout (invalid DOM nesting)
   - Fixed Profile page to use correct /api/my-stars endpoint
@@ -164,7 +174,7 @@ Short alias `sb` available: `sb install owner/skill`
   - UI: SkillBadges, DependencyGraph, ActivityFeed, ValidationScore components
   - API: Extended skill detail endpoint with validation data and new fields
 - 2026-02-05: CLI tool and API tokens with scope enforcement
-  - CLI: skillbook/sb CLI with auth, publish, install, search, validate commands
+  - CLI: clawskillhub/csh CLI with auth, publish, install, search, validate commands
   - API: Token-based authentication with scope enforcement (read/write)
   - Settings: API token management UI (create, list, revoke)
   - UI: User dropdown menu with Settings, API Tokens, Profile links

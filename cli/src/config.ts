@@ -12,9 +12,9 @@ interface ConfigSchema {
 }
 
 export const config = new Conf<ConfigSchema>({
-  projectName: "skillbook-cli",
+  projectName: "clawskillhub-cli",
   defaults: {
-    apiUrl: "https://skillbook.replit.app",
+    apiUrl: "https://clawskillhub.com",
   },
 });
 

@@ -12,8 +12,8 @@ import { checkCommands } from "./commands/check.js";
 const program = new Command();
 
 program
-  .name("skillbook")
-  .description("SkillBook CLI - Manage OpenClaw skills from the command line")
+  .name("clawskillhub")
+  .description("ClawSkillHub CLI - Manage OpenClaw skills from the command line")
   .version("1.0.0");
 
 authCommands(program);

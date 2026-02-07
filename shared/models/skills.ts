@@ -113,8 +113,30 @@ export const skillActivitiesRelations = relations(skillActivities, ({ one }) => 
   user: one(users, { fields: [skillActivities.userId], references: [users.id] }),
 }));
 
+export const skillComments = pgTable("skill_comments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  skillId: uuid("skill_id").notNull().references(() => skills.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  parentId: uuid("parent_id"),
+  content: text("content").notNull(),
+  isEdited: boolean("is_edited").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("skill_comments_skill_idx").on(table.skillId),
+  index("skill_comments_parent_idx").on(table.parentId),
+]);
+
+export const skillCommentsRelations = relations(skillComments, ({ one }) => ({
+  skill: one(skills, { fields: [skillComments.skillId], references: [skills.id] }),
+  user: one(users, { fields: [skillComments.userId], references: [users.id] }),
+  parent: one(skillComments, { fields: [skillComments.parentId], references: [skillComments.id] }),
+}));
+
 export type Skill = typeof skills.$inferSelect;
 export type SkillActivity = typeof skillActivities.$inferSelect;
+export type SkillComment = typeof skillComments.$inferSelect;
+export type InsertSkillComment = typeof skillComments.$inferInsert;
 export type InsertSkill = typeof skills.$inferInsert;
 export type SkillVersion = typeof skillVersions.$inferSelect;
 export type InsertSkillVersion = typeof skillVersions.$inferInsert;

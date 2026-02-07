@@ -59,7 +59,7 @@ async function main() {
   registerAuthRoutes(app);
   registerRoutes(app);
 
-  // Serve skill.md for agents (curl -s https://skillbook.replit.app/skill.md)
+  // Serve skill.md for agents (curl -s https://clawskillhub.com/skill.md)
   app.get("/skill.md", (_req, res) => {
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
     res.sendFile(path.join(__dirname, "../public/skill.md"));

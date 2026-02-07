@@ -1,11 +1,11 @@
 {
-  "name": "skillbook-cli",
+  "name": "clawskillhub-cli",
   "version": "1.0.0",
-  "description": "SkillBook CLI - Manage OpenClaw skills from the command line",
+  "description": "ClawSkillHub CLI - Manage OpenClaw skills from the command line",
   "main": "dist/index.js",
   "bin": {
-    "skillbook": "./dist/index.js",
-    "sb": "./dist/index.js"
+    "clawskillhub": "./dist/index.js",
+    "csh": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",

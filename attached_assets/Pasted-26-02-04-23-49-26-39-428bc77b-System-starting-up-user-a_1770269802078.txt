@@ -1,0 +1,144 @@
+26-02-04 23:49:26.39
+428bc77b
+System
+starting up user application
+2026-02-04 23:49:26.39
+428bc77b
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-04 23:49:26.39
+428bc77b
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-04 23:49:29.33
+428bc77b
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-04 23:49:29.33
+428bc77b
+User
+> clawskillhub@1.0.0 start
+2026-02-04 23:49:31.12
+428bc77b
+User
+Server running on http://0.0.0.0:5000
+2026-02-04 23:54:14.20
+e1c2699b
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-04 23:54:14.20
+e1c2699b
+System
+starting up user application
+2026-02-04 23:54:14.20
+e1c2699b
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-04 23:54:17.11
+e1c2699b
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-04 23:54:17.11
+e1c2699b
+User
+> clawskillhub@1.0.0 start
+2026-02-04 23:54:19.18
+e1c2699b
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-04 23:54:19.19
+e1c2699b
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 00:02:35.66
+29ecd3ee
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 00:02:35.66
+29ecd3ee
+System
+starting up user application
+2026-02-05 00:02:35.66
+29ecd3ee
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 00:02:36.82
+29ecd3ee
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 00:02:36.82
+29ecd3ee
+User
+> clawskillhub@1.0.0 start
+2026-02-05 00:02:37.88
+29ecd3ee
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 00:02:37.88
+29ecd3ee
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 00:07:58.21
+88bc73bf
+System
+starting up user application
+2026-02-05 00:07:58.21
+88bc73bf
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 00:07:58.21
+88bc73bf
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 00:07:59.19
+88bc73bf
+User
+> clawskillhub@1.0.0 start
+2026-02-05 00:07:59.19
+88bc73bf
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 00:07:59.92
+88bc73bf
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 00:07:59.92
+88bc73bf
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 00:08:00.15
+88bc73bf
+User
+Application fully initialized
+2026-02-05 00:14:50.15
+3970f435
+System
+starting up user application
+2026-02-05 00:14:50.15
+3970f435
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 00:14:50.15
+3970f435
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 00:14:51.33
+3970f435
+User
+> clawskillhub@1.0.0 start
+2026-02-05 00:14:51.33
+3970f435
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 00:14:51.69
+3970f435
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 00:14:51.70
+3970f435
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 00:14:52.63
+3970f435
+User
+Application fully initialized

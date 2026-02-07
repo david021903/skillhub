@@ -1,0 +1,192 @@
+2026-02-04 23:44:33.78
+76af2fc9
+User
+code: 'ERR_MODULE_NOT_FOUND'
+2026-02-04 23:44:33.78
+76af2fc9
+User
+^
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+2026-02-04 23:44:33.78
+76af2fc9
+User
+throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+2026-02-04 23:44:33.78
+76af2fc9
+User
+}
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2026-02-04 23:44:33.78
+76af2fc9
+User
+Node.js v20.20.0
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at packageResolve (node:internal/modules/esm/resolve:873:9)
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+2026-02-04 23:44:33.78
+76af2fc9
+User
+node:internal/modules/esm/resolve:873
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at moduleResolve (node:internal/modules/esm/resolve:946:18)
+2026-02-04 23:44:33.78
+76af2fc9
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+2026-02-04 23:44:33.78
+76af2fc9
+User
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@shared/schema' imported from /home/runner/workspace/dist/server/routes.js
+2026-02-04 23:44:33.80
+76af2fc9
+System
+command finished with error [npm run start]: exit status 1
+2026-02-04 23:44:38.27
+76af2fc9
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-04 23:44:38.27
+76af2fc9
+User
+> clawskillhub@1.0.0 start
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at moduleResolve (node:internal/modules/esm/resolve:946:18)
+2026-02-04 23:44:38.35
+76af2fc9
+User
+throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+2026-02-04 23:44:38.35
+76af2fc9
+User
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@shared/schema' imported from /home/runner/workspace/dist/server/routes.js
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2026-02-04 23:44:38.35
+76af2fc9
+User
+code: 'ERR_MODULE_NOT_FOUND'
+2026-02-04 23:44:38.35
+76af2fc9
+User
+node:internal/modules/esm/resolve:873
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at packageResolve (node:internal/modules/esm/resolve:873:9)
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+2026-02-04 23:44:38.35
+76af2fc9
+User
+Node.js v20.20.0
+2026-02-04 23:44:38.35
+76af2fc9
+User
+}
+2026-02-04 23:44:38.35
+76af2fc9
+User
+^
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+2026-02-04 23:44:38.35
+76af2fc9
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+2026-02-04 23:44:38.36
+76af2fc9
+System
+command finished with error [npm run start]: exit status 1
+2026-02-04 23:44:46.43
+76af2fc9
+System
+crash loop detected
+2026-02-04 23:49:26.39
+428bc77b
+System
+starting up user application
+2026-02-04 23:49:26.39
+428bc77b
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-04 23:49:26.39
+428bc77b
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-04 23:49:29.33
+428bc77b
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-04 23:49:29.33
+428bc77b
+User
+> clawskillhub@1.0.0 start
+2026-02-04 23:49:31.12
+428bc77b
+User
+Server running on http://0.0.0.0:5000
+2026-02-04 23:54:14.20
+e1c2699b
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-04 23:54:14.20
+e1c2699b
+System
+starting up user application
+2026-02-04 23:54:14.20
+e1c2699b
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-04 23:54:17.11
+e1c2699b
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-04 23:54:17.11
+e1c2699b
+User
+> clawskillhub@1.0.0 start
+2026-02-04 23:54:19.18
+e1c2699b
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-04 23:54:19.19
+e1c2699b
+User
+Server running on http://0.0.0.0:5000

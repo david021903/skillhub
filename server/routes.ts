@@ -1,15 +1,15 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { db } from "./db";
-import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, users, apiTokens } from "@shared/schema";
+import { db } from "./db.js";
+import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, users, apiTokens } from "../shared/schema.js";
 import { eq, desc, and, ilike, sql, or } from "drizzle-orm";
-import { isAuthenticated } from "./replit_integrations/auth";
+import { isAuthenticated } from "./replit_integrations/auth/index.js";
 import multer from "multer";
 import matter from "gray-matter";
 import crypto from "crypto";
-import { validateSkillMd } from "./validation";
-import { skillTemplates, getTemplateById } from "./skill-templates";
-import { checkDependencies, parseDependenciesFromSkillMd } from "./dependency-checker";
-import { explainSkill, generateSkill, chatAboutSkill, type ChatMessage } from "./ai-features";
+import { validateSkillMd } from "./validation.js";
+import { skillTemplates, getTemplateById } from "./skill-templates.js";
+import { checkDependencies, parseDependenciesFromSkillMd } from "./dependency-checker.js";
+import { explainSkill, generateSkill, chatAboutSkill, type ChatMessage } from "./ai-features.js";
 
 function generateToken(): string {
   return `sb_${crypto.randomBytes(32).toString("hex")}`;

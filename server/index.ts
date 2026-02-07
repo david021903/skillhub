@@ -1,77 +1,122 @@
+import http from "http";
 import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import rateLimit from "express-rate-limit";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
-import { registerRoutes } from "./routes";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
 const PORT = 5000;
 
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { message: "Too many requests, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
+// Create Express app
+const app = express();
+
+// Create HTTP server FIRST - handles raw requests before Express is ready
+const server = http.createServer((req, res) => {
+  const url = req.url || "/";
+  // Ultra-fast health check responses before Express middleware
+  // Check for root path (with or without query params) and /health
+  if (url === "/" || url.startsWith("/?") || url === "/health" || url.startsWith("/health?")) {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("OK");
+    return;
+  }
+  // Hand off to Express for everything else
+  app(req, res);
 });
 
-const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 10,
-  message: { message: "Too many authentication attempts, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
+// Start listening IMMEDIATELY
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  
+  // Initialize Express app asynchronously
+  initializeApp().catch((err) => {
+    console.error("Failed to initialize app:", err);
+  });
 });
 
-const publishLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 20,
-  message: { message: "Too many publish requests, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+async function initializeApp() {
+  // In production, log static files path
+  if (process.env.NODE_ENV === "production") {
+    const publicPath = path.join(__dirname, "../public");
+    console.log("Serving static files from:", publicPath);
+  }
 
-const aiLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 30,
-  message: { message: "Too many AI requests, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+  // Basic middleware
+  app.use(cors());
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use("/api/", apiLimiter);
-app.use("/api/tokens", authLimiter);
-app.use("/api/cli/skills/*/publish", publishLimiter);
-app.use("/api/skills/explain", aiLimiter);
-app.use("/api/skills/generate", aiLimiter);
-app.use("/api/skills/chat", aiLimiter);
+  // Health endpoints (also handled by raw server above, but good to have in Express too)
+  app.get("/health", (_req, res) => {
+    res.status(200).json({ status: "ok" });
+  });
 
-async function main() {
+  // Dynamic imports - load heavy modules after server is listening
+  const rateLimit = (await import("express-rate-limit")).default;
+  const { setupAuth, registerAuthRoutes } = await import("./replit_integrations/auth/index.js");
+  const { registerRoutes } = await import("./routes.js");
+  
+  // Rate limiters
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { message: "Too many requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    message: { message: "Too many authentication attempts, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const publishLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 20,
+    message: { message: "Too many publish requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const aiLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 30,
+    message: { message: "Too many AI requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Apply rate limiters
+  app.use("/api/", apiLimiter);
+  app.use("/api/tokens", authLimiter);
+  app.use("/api/cli/skills/*/publish", publishLimiter);
+  app.use("/api/skills/explain", aiLimiter);
+  app.use("/api/skills/generate", aiLimiter);
+  app.use("/api/skills/chat", aiLimiter);
+
+  // Setup auth and routes
   await setupAuth(app);
   registerAuthRoutes(app);
   registerRoutes(app);
 
-  // Serve skill.md for agents (curl -s https://clawskillhub.com/skill.md)
+  // Serve skill.md for agents
   app.get("/skill.md", (_req, res) => {
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
     res.sendFile(path.join(__dirname, "../public/skill.md"));
   });
 
   if (process.env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, "../public")));
+    const publicPath = path.join(__dirname, "../public");
+    // Serve static files
+    app.use(express.static(publicPath));
+    // Catch-all for SPA routing
     app.get("*", (_req, res) => {
-      res.sendFile(path.join(__dirname, "../public/index.html"));
-    });
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://0.0.0.0:${PORT}`);
+      res.sendFile(path.join(publicPath, "index.html"));
     });
   } else {
     const { createServer } = await import("vite");
@@ -83,10 +128,7 @@ async function main() {
       },
     });
     app.use(vite.middlewares);
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Development server running on http://0.0.0.0:${PORT}`);
-    });
   }
-}
 
-main().catch(console.error);
+  console.log("Application fully initialized");
+}

@@ -12,17 +12,24 @@ const PORT = 5000;
 // Create Express app
 const app = express();
 
+// Track if Express app is initialized
+let appReady = false;
+
 // Create HTTP server FIRST - handles raw requests before Express is ready
 const server = http.createServer((req, res) => {
   const url = req.url || "/";
-  // Ultra-fast health check responses before Express middleware
-  // Check for root path (with or without query params) and /health
-  if (url === "/" || url.startsWith("/?") || url === "/health" || url.startsWith("/health?")) {
+  const accept = req.headers.accept || "";
+  const isHealthCheck = url === "/health" || url.startsWith("/health?");
+  const isRootHealthCheck = (url === "/" || url.startsWith("/?")) && !accept.includes("text/html");
+  
+  // Fast health check response for non-browser requests or /health endpoint
+  if (isHealthCheck || (isRootHealthCheck && !appReady)) {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("OK");
     return;
   }
-  // Hand off to Express for everything else
+  
+  // Hand off to Express for everything else (including browser requests)
   app(req, res);
 });
 
@@ -130,5 +137,6 @@ async function initializeApp() {
     app.use(vite.middlewares);
   }
 
+  appReady = true;
   console.log("Application fully initialized");
 }

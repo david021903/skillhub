@@ -139,6 +139,13 @@ csh validate                # Validate SKILL.md before publishing
 Short alias `csh` available: `csh install owner/skill`
 
 ## Recent Changes
+- 2026-02-05: GitHub-like Issues, Pull Requests, and Fork functionality
+  - Issues system: Create, view, comment on issues per skill with numbered IDs
+  - Pull Requests: Propose SKILL.md changes, merge by owner with version bump
+  - Fork: Copy skills to your account (fork counter, forkedFromId tracking)
+  - SkillTabs: Code/Issues/Pull Requests tabbed navigation
+  - Version selector: View/download any version of a skill
+  - Database: skill_issues, skill_pull_requests, issue_comments, pr_comments tables
 - 2026-02-05: Added private/public skill visibility toggle and comments system
   - CreateSkill form now has GitHub-like visibility selector (Public/Private)
   - Comments system: skill_comments table, API endpoints (GET, POST, DELETE)

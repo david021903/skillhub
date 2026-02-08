@@ -27,7 +27,7 @@ export const apiTokens = pgTable("api_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 100 }).notNull(),
-  token: varchar("token", { length: 64 }).notNull().unique(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
   scopes: jsonb("scopes").$type<string[]>().default(["read", "write"]),
   lastUsedAt: timestamp("last_used_at"),
   expiresAt: timestamp("expires_at"),

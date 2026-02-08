@@ -1,0 +1,148 @@
+026-02-05 00:52:00.81
+dc19bf9b
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 00:52:00.81
+dc19bf9b
+User
+> clawskillhub@1.0.0 start
+2026-02-05 00:52:01.21
+dc19bf9b
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 00:52:01.21
+dc19bf9b
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 00:52:02.05
+dc19bf9b
+User
+Application fully initialized
+2026-02-05 00:57:01.59
+dc19bf9b
+System
+system: received signal terminated
+2026-02-05 00:58:27.26
+1e90398f
+System
+starting up user application
+2026-02-05 00:58:27.26
+1e90398f
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 00:58:27.26
+1e90398f
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 00:58:28.43
+1e90398f
+User
+> clawskillhub@1.0.0 start
+2026-02-05 00:58:28.43
+1e90398f
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 00:58:28.75
+1e90398f
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 00:58:28.75
+1e90398f
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 00:58:31.51
+1e90398f
+User
+Application fully initialized
+2026-02-05 00:59:20.08
+1e90398f
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 00:59:20.08
+1e90398f
+User
+(node:43) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 00:59:20.08
+1e90398f
+User
+To prepare for this change:
+2026-02-05 00:59:20.08
+1e90398f
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 00:59:20.08
+1e90398f
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 00:59:20.08
+1e90398f
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 00:59:20.08
+1e90398f
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 00:59:46.47
+1e90398f
+User
+code: '22001',
+2026-02-05 00:59:46.47
+1e90398f
+User
+at addChunk (node:internal/streams/readable:561:12)
+2026-02-05 00:59:46.47
+1e90398f
+User
+severity: 'ERROR',
+2026-02-05 00:59:46.47
+1e90398f
+User
+routine: 'varchar'
+2026-02-05 00:59:46.47
+1e90398f
+User
+}
+2026-02-05 00:59:46.47
+1e90398f
+User
+at Readable.push (node:internal/streams/readable:392:5)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at handle (file:///home/runner/workspace/node_modules/postgres/src/connection.js:489:6)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at TLSWrap.onStreamRead (node:internal/stream_base_commons:191:23) {
+2026-02-05 00:59:46.47
+1e90398f
+User
+at TLSSocket.data (file:///home/runner/workspace/node_modules/postgres/src/connection.js:324:9)
+2026-02-05 00:59:46.47
+1e90398f
+User
+Error creating token: PostgresError: value too long for type character varying(64)
+2026-02-05 00:59:46.47
+1e90398f
+User
+line: '638',
+2026-02-05 00:59:46.47
+1e90398f
+User
+file: 'varchar.c',
+2026-02-05 00:59:46.47
+1e90398f
+User
+severity_local: 'ERROR',
+2026-02-05 00:59:46.47
+1e90398f
+User
+at TLSSocket.emit (node:events:524:28)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at ErrorResponse (file:///home/runner/workspace/node_modules/postgres/src/connection.js:815:30)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)

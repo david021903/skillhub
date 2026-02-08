@@ -5,6 +5,7 @@ import { users } from "./auth.js";
 export const skills = pgTable("skills", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   ownerId: varchar("owner_id").notNull().references(() => users.id),
+  forkedFromId: uuid("forked_from_id"),
   name: varchar("name", { length: 100 }).notNull(),
   slug: varchar("slug", { length: 100 }).notNull(),
   description: text("description"),
@@ -30,6 +31,7 @@ export const skills = pgTable("skills", {
 }, (table) => [
   uniqueIndex("skills_owner_slug_idx").on(table.ownerId, table.slug),
   index("skills_name_idx").on(table.name),
+  index("skills_forked_from_idx").on(table.forkedFromId),
 ]);
 
 export const skillVersions = pgTable("skill_versions", {
@@ -133,6 +135,90 @@ export const skillCommentsRelations = relations(skillComments, ({ one }) => ({
   parent: one(skillComments, { fields: [skillComments.parentId], references: [skillComments.id] }),
 }));
 
+// Issues system
+export const skillIssues = pgTable("skill_issues", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  skillId: uuid("skill_id").notNull().references(() => skills.id, { onDelete: "cascade" }),
+  authorId: varchar("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  number: integer("number").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  body: text("body"),
+  state: varchar("state", { length: 20 }).notNull().default("open"),
+  labels: jsonb("labels").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  closedAt: timestamp("closed_at"),
+}, (table) => [
+  uniqueIndex("skill_issues_skill_number_idx").on(table.skillId, table.number),
+  index("skill_issues_skill_idx").on(table.skillId),
+  index("skill_issues_author_idx").on(table.authorId),
+]);
+
+export const issueComments = pgTable("issue_comments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  issueId: uuid("issue_id").notNull().references(() => skillIssues.id, { onDelete: "cascade" }),
+  authorId: varchar("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("issue_comments_issue_idx").on(table.issueId),
+]);
+
+// Pull requests / Skill suggestions
+export const skillPullRequests = pgTable("skill_pull_requests", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  skillId: uuid("skill_id").notNull().references(() => skills.id, { onDelete: "cascade" }),
+  authorId: varchar("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  number: integer("number").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  body: text("body"),
+  state: varchar("state", { length: 20 }).notNull().default("open"),
+  proposedSkillMd: text("proposed_skill_md").notNull(),
+  baseVersion: varchar("base_version", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  mergedAt: timestamp("merged_at"),
+  closedAt: timestamp("closed_at"),
+}, (table) => [
+  uniqueIndex("skill_prs_skill_number_idx").on(table.skillId, table.number),
+  index("skill_prs_skill_idx").on(table.skillId),
+  index("skill_prs_author_idx").on(table.authorId),
+]);
+
+export const prComments = pgTable("pr_comments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  prId: uuid("pr_id").notNull().references(() => skillPullRequests.id, { onDelete: "cascade" }),
+  authorId: varchar("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("pr_comments_pr_idx").on(table.prId),
+]);
+
+export const skillIssuesRelations = relations(skillIssues, ({ one, many }) => ({
+  skill: one(skills, { fields: [skillIssues.skillId], references: [skills.id] }),
+  author: one(users, { fields: [skillIssues.authorId], references: [users.id] }),
+  comments: many(issueComments),
+}));
+
+export const issueCommentsRelations = relations(issueComments, ({ one }) => ({
+  issue: one(skillIssues, { fields: [issueComments.issueId], references: [skillIssues.id] }),
+  author: one(users, { fields: [issueComments.authorId], references: [users.id] }),
+}));
+
+export const skillPullRequestsRelations = relations(skillPullRequests, ({ one, many }) => ({
+  skill: one(skills, { fields: [skillPullRequests.skillId], references: [skills.id] }),
+  author: one(users, { fields: [skillPullRequests.authorId], references: [users.id] }),
+  comments: many(prComments),
+}));
+
+export const prCommentsRelations = relations(prComments, ({ one }) => ({
+  pr: one(skillPullRequests, { fields: [prComments.prId], references: [skillPullRequests.id] }),
+  author: one(users, { fields: [prComments.authorId], references: [users.id] }),
+}));
+
 export type Skill = typeof skills.$inferSelect;
 export type SkillActivity = typeof skillActivities.$inferSelect;
 export type SkillComment = typeof skillComments.$inferSelect;
@@ -142,3 +228,9 @@ export type SkillVersion = typeof skillVersions.$inferSelect;
 export type InsertSkillVersion = typeof skillVersions.$inferInsert;
 export type SkillValidation = typeof skillValidations.$inferSelect;
 export type SkillStar = typeof skillStars.$inferSelect;
+export type SkillIssue = typeof skillIssues.$inferSelect;
+export type InsertSkillIssue = typeof skillIssues.$inferInsert;
+export type SkillPullRequest = typeof skillPullRequests.$inferSelect;
+export type InsertSkillPullRequest = typeof skillPullRequests.$inferInsert;
+export type IssueComment = typeof issueComments.$inferSelect;
+export type PrComment = typeof prComments.$inferSelect;

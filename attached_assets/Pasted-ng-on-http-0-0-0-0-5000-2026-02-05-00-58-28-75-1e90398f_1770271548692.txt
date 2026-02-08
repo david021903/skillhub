@@ -1,0 +1,181 @@
+ng on http://0.0.0.0:5000
+2026-02-05 00:58:28.75
+1e90398f
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 00:58:31.51
+1e90398f
+User
+Application fully initialized
+2026-02-05 00:59:20.08
+1e90398f
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 00:59:20.08
+1e90398f
+User
+(node:43) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 00:59:20.08
+1e90398f
+User
+To prepare for this change:
+2026-02-05 00:59:20.08
+1e90398f
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 00:59:20.08
+1e90398f
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 00:59:20.08
+1e90398f
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 00:59:20.08
+1e90398f
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 00:59:46.47
+1e90398f
+User
+code: '22001',
+2026-02-05 00:59:46.47
+1e90398f
+User
+at addChunk (node:internal/streams/readable:561:12)
+2026-02-05 00:59:46.47
+1e90398f
+User
+severity: 'ERROR',
+2026-02-05 00:59:46.47
+1e90398f
+User
+routine: 'varchar'
+2026-02-05 00:59:46.47
+1e90398f
+User
+}
+2026-02-05 00:59:46.47
+1e90398f
+User
+at Readable.push (node:internal/streams/readable:392:5)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at handle (file:///home/runner/workspace/node_modules/postgres/src/connection.js:489:6)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at TLSWrap.onStreamRead (node:internal/stream_base_commons:191:23) {
+2026-02-05 00:59:46.47
+1e90398f
+User
+at TLSSocket.data (file:///home/runner/workspace/node_modules/postgres/src/connection.js:324:9)
+2026-02-05 00:59:46.47
+1e90398f
+User
+Error creating token: PostgresError: value too long for type character varying(64)
+2026-02-05 00:59:46.47
+1e90398f
+User
+line: '638',
+2026-02-05 00:59:46.47
+1e90398f
+User
+file: 'varchar.c',
+2026-02-05 00:59:46.47
+1e90398f
+User
+severity_local: 'ERROR',
+2026-02-05 00:59:46.47
+1e90398f
+User
+at TLSSocket.emit (node:events:524:28)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at ErrorResponse (file:///home/runner/workspace/node_modules/postgres/src/connection.js:815:30)
+2026-02-05 00:59:46.47
+1e90398f
+User
+at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+2026-02-05 01:02:53.27
+dc19bf9b
+System
+system: received signal terminated
+2026-02-05 01:04:30.96
+72e54b8e
+System
+starting up user application
+2026-02-05 01:04:30.96
+72e54b8e
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 01:04:30.96
+72e54b8e
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 01:04:32.01
+72e54b8e
+User
+> clawskillhub@1.0.0 start
+2026-02-05 01:04:32.01
+72e54b8e
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 01:04:32.31
+72e54b8e
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 01:04:32.31
+72e54b8e
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at moduleResolve (node:internal/modules/esm/resolve:952:10)
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+2026-02-05 01:04:32.40
+72e54b8e
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+2026-02-05 01:04:32.40
+72e54b8e
+User
+url: 'file:///home/runner/workspace/dist/shared/models/auth'
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+2026-02-05 01:04:32.40
+72e54b8e
+User
+}
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+2026-02-05 01:04:32.40
+72e54b8e
+User
+at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+2026-02-05 01:04:32.40
+72e54b8e
+User
+Failed to initialize app: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/workspace/dist/shared/models/auth' imported from /home/runner/workspace/dist/shared/schema.js

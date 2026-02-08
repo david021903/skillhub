@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db.js";
-import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, users, apiTokens } from "../shared/schema.js";
+import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, skillIssues, issueComments, skillPullRequests, prComments, users, apiTokens } from "../shared/schema.js";
 import { eq, desc, and, ilike, sql, or } from "drizzle-orm";
 import { isAuthenticated } from "./replit_integrations/auth/index.js";
 import multer from "multer";
@@ -1222,6 +1222,356 @@ export function registerRoutes(app: Express) {
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to search" });
+    }
+  });
+
+  // Download skill version as file
+  app.get("/api/skills/:owner/:slug/download/:version?", async (req: Request, res: Response) => {
+    try {
+      const owner = req.params.owner as string;
+      const slug = req.params.slug as string;
+      const version = req.params.version as string | undefined;
+      
+      const [ownerUser] = await db.select().from(users).where(eq(users.handle, owner)).limit(1);
+      if (!ownerUser) return res.status(404).json({ message: "User not found" });
+      
+      const [skill] = await db.select().from(skills).where(and(eq(skills.ownerId, ownerUser.id), eq(skills.slug, slug))).limit(1);
+      if (!skill) return res.status(404).json({ message: "Skill not found" });
+      
+      let versionData;
+      if (version && version !== "latest") {
+        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.version, version))).limit(1);
+      } else {
+        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.isLatest, true))).limit(1);
+      }
+      
+      if (!versionData) return res.status(404).json({ message: "Version not found" });
+      
+      res.setHeader("Content-Type", "text/markdown");
+      res.setHeader("Content-Disposition", `attachment; filename="${skill.slug}-${versionData.version}.md"`);
+      res.send(versionData.skillMd);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to download skill" });
+    }
+  });
+
+  // Fork a skill
+  app.post("/api/skills/:id/fork", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const id = req.params.id as string;
+      
+      const [originalSkill] = await db.select().from(skills).where(eq(skills.id, id)).limit(1);
+      if (!originalSkill) return res.status(404).json({ message: "Skill not found" });
+      
+      const [latestVersion] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, originalSkill.id), eq(skillVersions.isLatest, true))).limit(1);
+      
+      const [existing] = await db.select().from(skills).where(and(eq(skills.ownerId, userId), eq(skills.slug, originalSkill.slug))).limit(1);
+      const newSlug = existing ? `${originalSkill.slug}-fork-${Date.now()}` : originalSkill.slug;
+      
+      const [forkedSkill] = await db.insert(skills).values({
+        ownerId: userId,
+        forkedFromId: originalSkill.id,
+        name: originalSkill.name,
+        slug: newSlug,
+        description: originalSkill.description,
+        license: originalSkill.license,
+        tags: originalSkill.tags,
+        dependencies: originalSkill.dependencies,
+        isPublic: true,
+      }).returning();
+      
+      if (latestVersion) {
+        await db.insert(skillVersions).values({
+          skillId: forkedSkill.id,
+          version: "1.0.0",
+          skillMd: latestVersion.skillMd,
+          manifest: latestVersion.manifest,
+          isLatest: true,
+        });
+      }
+      
+      await db.update(skills).set({ forks: sql`${skills.forks} + 1` }).where(eq(skills.id, originalSkill.id));
+      logActivity(originalSkill.id, userId, "fork", { forkedToId: forkedSkill.id });
+      
+      const [ownerUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      res.json({ ...forkedSkill, owner: { handle: ownerUser?.handle } });
+    } catch (error) {
+      console.error("Fork error:", error);
+      res.status(500).json({ message: "Failed to fork skill" });
+    }
+  });
+
+  // Issues endpoints
+  app.get("/api/skills/:id/issues", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { state = "open" } = req.query;
+      
+      const issues = await db.query.skillIssues.findMany({
+        where: state === "all" 
+          ? eq(skillIssues.skillId, id)
+          : and(eq(skillIssues.skillId, id), eq(skillIssues.state, state as string)),
+        with: { author: true },
+        orderBy: [desc(skillIssues.createdAt)],
+      });
+      
+      res.json(issues);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch issues" });
+    }
+  });
+
+  app.post("/api/skills/:id/issues", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const id = req.params.id as string;
+      const { title, body, labels } = req.body;
+      
+      if (!title || title.length < 3) return res.status(400).json({ message: "Title must be at least 3 characters" });
+      
+      const [maxNumber] = await db.select({ max: sql<number>`COALESCE(MAX(number), 0)` }).from(skillIssues).where(eq(skillIssues.skillId, id));
+      const number = (maxNumber?.max || 0) + 1;
+      
+      const [issue] = await db.insert(skillIssues).values({
+        skillId: id,
+        authorId: userId,
+        number,
+        title,
+        body: body || null,
+        labels: labels || [],
+      }).returning();
+      
+      logActivity(id, userId, "issue_opened", { issueNumber: number, title });
+      res.json(issue);
+    } catch (error) {
+      console.error("Create issue error:", error);
+      res.status(500).json({ message: "Failed to create issue" });
+    }
+  });
+
+  app.get("/api/skills/:skillId/issues/:number", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      const number = req.params.number as string;
+      
+      const [issue] = await db.query.skillIssues.findMany({
+        where: and(eq(skillIssues.skillId, skillId), eq(skillIssues.number, parseInt(number))),
+        with: { author: true, comments: { with: { author: true }, orderBy: [desc(issueComments.createdAt)] } },
+        limit: 1,
+      });
+      
+      if (!issue) return res.status(404).json({ message: "Issue not found" });
+      res.json(issue);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch issue" });
+    }
+  });
+
+  app.patch("/api/skills/:skillId/issues/:number", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const skillId = req.params.skillId as string;
+      const number = req.params.number as string;
+      const { state, title, body } = req.body;
+      
+      const [issue] = await db.select().from(skillIssues).where(and(eq(skillIssues.skillId, skillId), eq(skillIssues.number, parseInt(number)))).limit(1);
+      if (!issue) return res.status(404).json({ message: "Issue not found" });
+      
+      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
+      if (issue.authorId !== userId && skill?.ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized to edit this issue" });
+      }
+      
+      const updates: any = { updatedAt: new Date() };
+      if (state) {
+        updates.state = state;
+        if (state === "closed") updates.closedAt = new Date();
+      }
+      if (title) updates.title = title;
+      if (body !== undefined) updates.body = body;
+      
+      const [updated] = await db.update(skillIssues).set(updates).where(eq(skillIssues.id, issue.id)).returning();
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update issue" });
+    }
+  });
+
+  app.post("/api/skills/:skillId/issues/:number/comments", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const skillId = req.params.skillId as string;
+      const number = req.params.number as string;
+      const { body } = req.body;
+      
+      if (!body || body.length < 1) return res.status(400).json({ message: "Comment body required" });
+      
+      const [issue] = await db.select().from(skillIssues).where(and(eq(skillIssues.skillId, skillId), eq(skillIssues.number, parseInt(number)))).limit(1);
+      if (!issue) return res.status(404).json({ message: "Issue not found" });
+      
+      const [comment] = await db.insert(issueComments).values({
+        issueId: issue.id,
+        authorId: userId,
+        body,
+      }).returning();
+      
+      res.json(comment);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add comment" });
+    }
+  });
+
+  // Pull requests endpoints
+  app.get("/api/skills/:id/pulls", async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { state = "open" } = req.query;
+      
+      const prs = await db.query.skillPullRequests.findMany({
+        where: state === "all" 
+          ? eq(skillPullRequests.skillId, id)
+          : and(eq(skillPullRequests.skillId, id), eq(skillPullRequests.state, state as string)),
+        with: { author: true },
+        orderBy: [desc(skillPullRequests.createdAt)],
+      });
+      
+      res.json(prs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pull requests" });
+    }
+  });
+
+  app.post("/api/skills/:id/pulls", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const id = req.params.id as string;
+      const { title, body, proposedSkillMd, baseVersion } = req.body;
+      
+      if (!title || title.length < 3) return res.status(400).json({ message: "Title must be at least 3 characters" });
+      if (!proposedSkillMd) return res.status(400).json({ message: "Proposed SKILL.md content required" });
+      
+      const [maxNumber] = await db.select({ max: sql<number>`COALESCE(MAX(number), 0)` }).from(skillPullRequests).where(eq(skillPullRequests.skillId, id));
+      const number = (maxNumber?.max || 0) + 1;
+      
+      const [pr] = await db.insert(skillPullRequests).values({
+        skillId: id,
+        authorId: userId,
+        number,
+        title,
+        body: body || null,
+        proposedSkillMd,
+        baseVersion: baseVersion || null,
+      }).returning();
+      
+      logActivity(id, userId, "pr_opened", { prNumber: number, title });
+      res.json(pr);
+    } catch (error) {
+      console.error("Create PR error:", error);
+      res.status(500).json({ message: "Failed to create pull request" });
+    }
+  });
+
+  app.get("/api/skills/:skillId/pulls/:number", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      const number = req.params.number as string;
+      
+      const [pr] = await db.query.skillPullRequests.findMany({
+        where: and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.number, parseInt(number))),
+        with: { author: true, comments: { with: { author: true }, orderBy: [desc(prComments.createdAt)] } },
+        limit: 1,
+      });
+      
+      if (!pr) return res.status(404).json({ message: "Pull request not found" });
+      res.json(pr);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pull request" });
+    }
+  });
+
+  app.patch("/api/skills/:skillId/pulls/:number", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const skillId = req.params.skillId as string;
+      const number = req.params.number as string;
+      const { state, title, body } = req.body;
+      
+      const [pr] = await db.select().from(skillPullRequests).where(and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.number, parseInt(number)))).limit(1);
+      if (!pr) return res.status(404).json({ message: "Pull request not found" });
+      
+      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
+      if (pr.authorId !== userId && skill?.ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      const updates: any = { updatedAt: new Date() };
+      if (state) {
+        updates.state = state;
+        if (state === "closed") updates.closedAt = new Date();
+        if (state === "merged") updates.mergedAt = new Date();
+      }
+      if (title) updates.title = title;
+      if (body !== undefined) updates.body = body;
+      
+      const [updated] = await db.update(skillPullRequests).set(updates).where(eq(skillPullRequests.id, pr.id)).returning();
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update pull request" });
+    }
+  });
+
+  // Merge a PR (only skill owner can do this)
+  app.post("/api/skills/:skillId/pulls/:number/merge", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const skillId = req.params.skillId as string;
+      const number = req.params.number as string;
+      const { newVersion } = req.body;
+      
+      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
+      if (!skill || skill.ownerId !== userId) return res.status(403).json({ message: "Only skill owner can merge" });
+      
+      const [pr] = await db.select().from(skillPullRequests).where(and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.number, parseInt(number)))).limit(1);
+      if (!pr) return res.status(404).json({ message: "Pull request not found" });
+      if (pr.state !== "open") return res.status(400).json({ message: "PR is not open" });
+      
+      await db.update(skillVersions).set({ isLatest: false }).where(eq(skillVersions.skillId, skillId));
+      
+      // Parse manifest from SKILL.md frontmatter
+      let manifest: Record<string, any> = {};
+      const fmMatch = pr.proposedSkillMd.match(/^---\n([\s\S]*?)\n---/);
+      if (fmMatch) {
+        try {
+          const lines = fmMatch[1].split('\n');
+          for (const line of lines) {
+            const [key, ...rest] = line.split(':');
+            if (key && rest.length) manifest[key.trim()] = rest.join(':').trim();
+          }
+        } catch {}
+      }
+      const validation = await validateSkillMd(pr.proposedSkillMd, manifest);
+      const [newVersionRecord] = await db.insert(skillVersions).values({
+        skillId,
+        version: newVersion || "1.0.0",
+        skillMd: pr.proposedSkillMd,
+        isLatest: true,
+      }).returning();
+      
+      await db.insert(skillValidations).values({
+        versionId: newVersionRecord.id,
+        status: validation.passed ? "passed" : "failed",
+        score: validation.score,
+        checks: validation.checks,
+      });
+      
+      await db.update(skillPullRequests).set({ state: "merged", mergedAt: new Date(), updatedAt: new Date() }).where(eq(skillPullRequests.id, pr.id));
+      
+      logActivity(skillId, userId, "pr_merged", { prNumber: parseInt(number), newVersion });
+      res.json({ message: "Pull request merged", version: newVersion });
+    } catch (error) {
+      console.error("Merge PR error:", error);
+      res.status(500).json({ message: "Failed to merge pull request" });
     }
   });
 }

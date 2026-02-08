@@ -10,9 +10,10 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { SkillExplainer } from "@/components/SkillExplainer";
 import { SkillChat } from "@/components/SkillChat";
 import { SkillComments } from "@/components/SkillComments";
+import { SkillTabs } from "@/components/SkillTabs";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Star, Download, Copy, ExternalLink, Clock, AlertCircle, RefreshCw, Github } from "lucide-react";
+import { Star, Copy, ExternalLink, AlertCircle, RefreshCw, Github, GitFork } from "lucide-react";
 
 export default function SkillDetail() {
   const [, params] = useRoute("/skills/:owner/:slug");
@@ -212,33 +213,14 @@ export default function SkillDetail() {
         </CardContent>
       </Card>
 
-      {skill.versions && skill.versions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Versions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {skill.versions.map((version: any) => (
-                <div
-                  key={version.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-medium">{version.version}</span>
-                    {version.isLatest && <Badge variant="default">Latest</Badge>}
-                    {version.isYanked && <Badge variant="destructive">Yanked</Badge>}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    {new Date(version.publishedAt).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {skill.forkedFromId && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <GitFork className="h-4 w-4" />
+          <span>Forked from another skill</span>
+        </div>
       )}
+
+      <SkillTabs skill={skill} owner={params?.owner || ""} slug={params?.slug || ""} />
 
       <DependencyGraph dependencies={skill.dependencies} skillName={skill.name} />
 
@@ -248,19 +230,6 @@ export default function SkillDetail() {
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          {latestVersion?.skillMd && (
-            <Card>
-              <CardHeader>
-                <CardTitle>SKILL.md</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm whitespace-pre-wrap">
-                  {latestVersion.skillMd}
-                </pre>
-              </CardContent>
-            </Card>
-          )}
-          
           {latestVersion?.skillMd && (
             <SkillChat skillMd={latestVersion.skillMd} skillName={skill.name} />
           )}

@@ -1,6 +1,6 @@
 {
   "name": "clawskillhub-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ClawSkillHub CLI - Manage OpenClaw skills from the command line",
   "main": "dist/index.js",
   "bin": {
@@ -11,7 +11,13 @@
     "build": "tsc",
     "dev": "tsx src/index.ts"
   },
-  "keywords": ["openclaw", "skills", "ai", "agent", "cli"],
+  "keywords": [
+    "openclaw",
+    "skills",
+    "ai",
+    "agent",
+    "cli"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {

@@ -18,8 +18,7 @@ interface ValidationResult {
 
 export function validateCommands(program: Command) {
   program
-    .command("check")
-    .alias("validate")
+    .command("validate")
     .description("Validate the current skill before publishing")
     .option("-f, --file <path>", "Path to SKILL.md", "SKILL.md")
     .option("--json", "Output as JSON")

@@ -3,6 +3,9 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { Pool } from "pg";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,10 +53,40 @@ async function initializeApp() {
     console.log("Serving static files from:", publicPath);
   }
 
+  // Trust proxy for rate limiting behind Replit's proxy
+  app.set("trust proxy", 1);
+
   // Basic middleware
-  app.use(cors());
+  app.use(cors({
+    origin: true,
+    credentials: true,
+  }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  // Session setup with PostgreSQL store
+  const PgSession = connectPgSimple(session);
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  app.use(session({
+    store: new PgSession({
+      pool,
+      tableName: "sessions",
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: "strict", // Strict for better CSRF protection
+    },
+  }));
 
   // Health endpoints (also handled by raw server above, but good to have in Express too)
   app.get("/health", (_req, res) => {
@@ -62,7 +95,7 @@ async function initializeApp() {
 
   // Dynamic imports - load heavy modules after server is listening
   const rateLimit = (await import("express-rate-limit")).default;
-  const { setupAuth, registerAuthRoutes } = await import("./replit_integrations/auth/index.js");
+  const { setupAuthRoutes } = await import("./auth.js");
   const { registerRoutes } = await import("./routes.js");
   
   // Rate limiters
@@ -100,6 +133,10 @@ async function initializeApp() {
 
   // Apply rate limiters
   app.use("/api/", apiLimiter);
+  app.use("/api/auth/login", authLimiter);
+  app.use("/api/auth/register", authLimiter);
+  app.use("/api/auth/forgot-password", authLimiter);
+  app.use("/api/auth/reset-password", authLimiter);
   app.use("/api/tokens", authLimiter);
   app.use("/api/cli/skills/*/publish", publishLimiter);
   app.use("/api/skills/explain", aiLimiter);
@@ -107,8 +144,7 @@ async function initializeApp() {
   app.use("/api/skills/chat", aiLimiter);
 
   // Setup auth and routes
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  setupAuthRoutes(app);
   registerRoutes(app);
 
   // Serve skill.md for agents

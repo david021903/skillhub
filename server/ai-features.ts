@@ -1,9 +1,10 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+function getOpenAIClient(apiKey: string): OpenAI {
+  return new OpenAI({
+    apiKey,
+  });
+}
 
 export interface ExplainerResult {
   summary: string;
@@ -13,9 +14,10 @@ export interface ExplainerResult {
   gettingStarted: string;
 }
 
-export async function explainSkill(skillMd: string): Promise<ExplainerResult> {
+export async function explainSkill(skillMd: string, apiKey: string): Promise<ExplainerResult> {
+  const openai = getOpenAIClient(apiKey);
   const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
+    model: "gpt-4o",
     messages: [
       {
         role: "system",
@@ -52,8 +54,10 @@ export interface GeneratorResult {
 
 export async function generateSkill(
   prompt: string,
+  apiKey: string,
   options: { category?: string; complexity?: string } = {}
 ): Promise<GeneratorResult> {
+  const openai = getOpenAIClient(apiKey);
   const systemPrompt = `You are an expert at creating OpenClaw agent skills. Generate a complete SKILL.md file based on the user's requirements.
 
 The SKILL.md format uses YAML frontmatter followed by markdown content:
@@ -91,7 +95,7 @@ Return a JSON object with:
   const userPrompt = `Generate a skill for: ${prompt}${options.category ? `\nCategory: ${options.category}` : ""}${options.complexity ? `\nComplexity: ${options.complexity}` : ""}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
+    model: "gpt-4o",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -112,8 +116,10 @@ export interface ChatMessage {
 export async function* chatAboutSkill(
   skillMd: string,
   userMessage: string,
+  apiKey: string,
   history: ChatMessage[] = []
 ): AsyncGenerator<string> {
+  const openai = getOpenAIClient(apiKey);
   const systemPrompt = `You are an AI assistant helping users understand and use an OpenClaw agent skill. You have access to the skill's documentation below.
 
 Answer questions about:
@@ -135,7 +141,7 @@ ${skillMd}`;
   ];
 
   const stream = await openai.chat.completions.create({
-    model: "gpt-5.1",
+    model: "gpt-4o",
     messages,
     stream: true,
     max_tokens: 1024,

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { FileUploader } from "@/components/FileUploader";
 import { skillTemplates as fallbackTemplates, templateCategories as fallbackCategories, type SkillTemplate } from "@/lib/skill-templates";
 import { cn } from "@/lib/utils";
 import { 
@@ -21,6 +22,13 @@ import {
   Check,
   Lock
 } from "lucide-react";
+
+interface UploadedFile {
+  path: string;
+  content: string;
+  size: number;
+  isBinary: boolean;
+}
 
 const iconMap: Record<string, typeof FileText> = {
   file: FileText,
@@ -60,6 +68,7 @@ export default function CreateSkill() {
   const [step, setStep] = useState<"template" | "details">("template");
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
+  const [additionalFiles, setAdditionalFiles] = useState<UploadedFile[]>([]);
 
   const selectedTemplate = skillTemplates.find(t => t.id === selectedTemplateId) || skillTemplates[0];
 
@@ -99,6 +108,7 @@ export default function CreateSkill() {
       const skillRes = await fetch("/api/skills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name,
           slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
@@ -118,7 +128,15 @@ export default function CreateSkill() {
       const versionRes = await fetch(`/api/skills/${skill.id}/versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version, skillMd }),
+        credentials: "include",
+        body: JSON.stringify({ 
+          version, 
+          skillMd,
+          files: additionalFiles.filter(f => f.path !== "SKILL.md" && !f.isBinary).map(f => ({
+            path: f.path,
+            content: f.content,
+          })),
+        }),
       });
 
       if (!versionRes.ok) {
@@ -341,12 +359,25 @@ export default function CreateSkill() {
                 id="skillMd"
                 value={skillMd}
                 onChange={(e) => setSkillMd(e.target.value)}
-                className="font-mono min-h-[400px]"
+                className="font-mono min-h-[300px]"
                 required
               />
               <p className="text-sm text-muted-foreground">
                 Use the OpenClaw SKILL.md format with YAML frontmatter.
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Additional Files (Optional)</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Add scripts, templates, or other files that your skill needs.
+              </p>
+              <FileUploader 
+                files={additionalFiles} 
+                onFilesChange={setAdditionalFiles}
+                maxFiles={50}
+                maxFileSize={1024 * 1024}
+              />
             </div>
 
             <div className="flex justify-end gap-4">

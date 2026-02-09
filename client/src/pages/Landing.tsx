@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Package, GitBranch, Shield, Terminal, Star, Users, Zap, Bot, User, Copy, Check } from "lucide-react";
+import { AuthForms } from "@/components/AuthForms";
 
 export default function Landing() {
   const [viewMode, setViewMode] = useState<"human" | "agent">("human");
   const [copied, setCopied] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const copyCommand = () => {
     navigator.clipboard.writeText("curl -s https://clawskillhub.com/skill.md");
@@ -23,9 +26,14 @@ export default function Landing() {
             </div>
             <span className="font-bold text-xl">ClawSkillHub</span>
           </div>
-          <a href="/api/login">
-            <Button>Sign In</Button>
-          </a>
+          <Dialog open={authOpen} onOpenChange={setAuthOpen}>
+            <DialogTrigger asChild>
+              <Button>Sign In</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+              <AuthForms onSuccess={() => setAuthOpen(false)} />
+            </DialogContent>
+          </Dialog>
         </div>
       </nav>
 
@@ -74,11 +82,9 @@ export default function Landing() {
             {viewMode === "human" ? (
               <>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <a href="/api/login">
-                    <Button size="lg" className="w-full sm:w-auto gap-2">
-                      Get Started Free
-                    </Button>
-                  </a>
+                  <Button size="lg" className="w-full sm:w-auto gap-2" onClick={() => setAuthOpen(true)}>
+                    Get Started Free
+                  </Button>
                   <Button size="lg" variant="outline" className="gap-2">
                     <Terminal className="h-4 w-4" />
                     csh install &lt;skill&gt;

@@ -1,0 +1,108 @@
+026-02-05 10:52:00.90
+34ec7c07
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 10:52:00.90
+34ec7c07
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 10:52:00.90
+34ec7c07
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 10:52:00.90
+34ec7c07
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 10:52:00.90
+34ec7c07
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 10:52:00.90
+34ec7c07
+User
+(node:40) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 10:52:00.90
+34ec7c07
+User
+To prepare for this change:
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:815:32
+2026-02-05 10:52:01.45
+34ec7c07
+User
+}
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at async file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:796:5 {
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at Object.keyGenerator (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:754:20)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+code: 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR',
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at wrappedValidations. [as xForwardedForHeader] (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:651:22)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users. See https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/ for more information.
+2026-02-05 10:52:01.45
+34ec7c07
+User
+help: 'https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/'
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at Object.xForwardedForHeader (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:337:13)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at Object.xForwardedForHeader (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:337:13)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users. See https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/ for more information.
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at Object.keyGenerator (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:754:20)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+code: 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR',
+2026-02-05 10:52:01.45
+34ec7c07
+User
+help: 'https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/'
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at wrappedValidations. [as xForwardedForHeader] (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:651:22)
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:815:32
+2026-02-05 10:52:01.45
+34ec7c07
+User
+at async file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:796:5 {
+2026-02-05 10:52:01.45
+34ec7c07
+User
+}

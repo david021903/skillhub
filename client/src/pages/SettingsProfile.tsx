@@ -29,6 +29,7 @@ export default function SettingsProfile() {
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ handle, bio }),
       });
       if (!res.ok) {

@@ -1,0 +1,89 @@
+Failed to load resource: the server responded with a status of 404 ()Understand this error
+index-BCWn5ZNT.js:40 TypeError: U.map is not a function
+    at KM (index-BCWn5ZNT.js:454:18613)
+    at ku (index-BCWn5ZNT.js:38:17317)
+    at Du (index-BCWn5ZNT.js:40:3158)
+    at Qm (index-BCWn5ZNT.js:40:45253)
+    at Bm (index-BCWn5ZNT.js:40:40099)
+    at VS (index-BCWn5ZNT.js:40:40027)
+    at Ya (index-BCWn5ZNT.js:40:39880)
+    at Zu (index-BCWn5ZNT.js:40:36193)
+    at Vm (index-BCWn5ZNT.js:40:37005)
+    at xr (index-BCWn5ZNT.js:38:3273)
+Ou @ index-BCWn5ZNT.js:40Understand this error
+index-BCWn5ZNT.js:38 Uncaught TypeError: U.map is not a function
+    at KM (index-BCWn5ZNT.js:454:18613)
+    at ku (index-BCWn5ZNT.js:38:17317)
+    at Du (index-BCWn5ZNT.js:40:3158)
+    at Qm (index-BCWn5ZNT.js:40:45253)
+    at Bm (index-BCWn5ZNT.js:40:40099)
+    at VS (index-BCWn5ZNT.js:40:40027)
+    at Ya (index-BCWn5ZNT.js:40:39880)
+    at Zu (index-BCWn5ZNT.js:40:36193)
+    at Vm (index-BCWn5ZNT.js:40:37005)
+    at xr (index-BCWn5ZNT.js:38:3273)Understand this error
+/api/skills/27c0510e-6bcc-45d6-9f7d-448b6e866ee8/pulls:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/api/skills/27c0510e-6bcc-45d6-9f7d-448b6e866ee8/activity:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/api/skills/27c0510e-6bcc-45d6-9f7d-448b6e866ee8/comments:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/api/skills/27c0510e-6bcc-45d6-9f7d-448b6e866ee8/starred:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+
+2026-02-05 01:43:10.26
+9ac422c8
+System
+starting up user application
+2026-02-05 01:43:10.26
+9ac422c8
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 01:43:10.26
+9ac422c8
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 01:43:11.17
+9ac422c8
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 01:43:11.17
+9ac422c8
+User
+> clawskillhub@1.0.0 start
+2026-02-05 01:43:11.45
+9ac422c8
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 01:43:11.45
+9ac422c8
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 01:43:12.14
+9ac422c8
+User
+Application fully initialized
+2026-02-05 01:43:27.01
+9ac422c8
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 01:43:27.01
+9ac422c8
+User
+To prepare for this change:
+2026-02-05 01:43:27.01
+9ac422c8
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 01:43:27.01
+9ac422c8
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 01:43:27.01
+9ac422c8
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 01:43:27.01
+9ac422c8
+User
+(node:41) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 01:43:27.01
+9ac422c8
+User
+(Use `node --trace-warnings ...` to show where the warning was created)

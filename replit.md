@@ -9,7 +9,7 @@ ClawSkillHub is a full-stack "GitHub for OpenClaw Skills" registry platform wher
 - **Backend**: Node.js + Express.js + TypeScript
 - **Frontend**: React 18 + Vite + TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Replit OAuth (OpenID Connect)
+- **Authentication**: Custom email/password + Google OAuth (session-based)
 - **UI**: Tailwind CSS + shadcn/ui components
 - **Routing**: Wouter (lightweight React router)
 
@@ -27,10 +27,10 @@ ClawSkillHub is a full-stack "GitHub for OpenClaw Skills" registry platform wher
 ├── server/                 # Express backend
 │   ├── index.ts            # Server entry point
 │   ├── routes.ts           # API routes
+│   ├── auth.ts             # Authentication (email/password, Google OAuth)
 │   ├── db.ts               # Database connection
-│   ├── validation.ts       # Skill validation pipeline
-│   └── replit_integrations/
-│       └── auth/           # Replit Auth integration
+│   ├── ai-features.ts      # AI features (BYOK OpenAI)
+│   └── validation.ts       # Skill validation pipeline
 ├── shared/                 # Shared types/schemas
 │   ├── schema.ts           # Export all schemas
 │   └── models/
@@ -42,8 +42,11 @@ ClawSkillHub is a full-stack "GitHub for OpenClaw Skills" registry platform wher
 ```
 
 ## Database Schema
-- **users**: User accounts (synced from Replit OAuth)
-- **sessions**: Session storage for authentication
+- **users**: User accounts with email/password or OAuth
+- **auth_identities**: Multi-provider auth (email, google)
+- **password_reset_tokens**: Password reset tokens
+- **email_verification_tokens**: Email verification
+- **sessions**: Session storage (PostgreSQL-backed via connect-pg-simple)
 - **skills**: Published skills with metadata
 - **skill_versions**: Versioned releases of skills
 - **skill_validations**: Validation results for each version
@@ -139,6 +142,17 @@ csh validate                # Validate SKILL.md before publishing
 Short alias `csh` available: `csh install owner/skill`
 
 ## Recent Changes
+- 2026-02-05: Custom authentication system (replacing Replit OAuth)
+  - Email/password registration and login with bcrypt hashing
+  - Google OAuth integration with account linking
+  - Session-based auth with PostgreSQL store (connect-pg-simple)
+  - Password reset flow with secure tokens
+  - Multi-provider auth via auth_identities table
+  - Bring-your-own-key (BYOK) AI features - users provide their own OpenAI API key
+  - AuthForms component with tabbed login/register UI
+  - Updated SettingsAI page to manage OpenAI API key
+  - Database: auth_identities, password_reset_tokens, email_verification_tokens tables
+  - Added passwordHash, emailVerified, openaiApiKey fields to users table
 - 2026-02-05: GitHub-like Issues, Pull Requests, and Fork functionality
   - Issues system: Create, view, comment on issues per skill with numbered IDs
   - Pull Requests: Propose SKILL.md changes, merge by owner with version bump
@@ -191,4 +205,13 @@ Short alias `csh` available: `csh install owner/skill`
   - Frontend: Skeleton loading animations for better UX
   - Backend: Input validation for skill creation (name, slug format, description length)
   - Backend: Input validation for profile updates (handle format, bio length)
+- 2026-02-05: Multi-file skill support with file browser and ZIP downloads
+  - Database: skill_files table for storing multiple files per skill version
+  - FileBrowser: GitHub-like tree view with file content viewer
+  - FileUploader: Drag-and-drop multi-file upload in skill creation
+  - ZIP download: Download entire skill as ZIP archive with all files
+  - CLI: Updated publish to collect all text files, install to extract files
+  - .skillignore: Pattern-based file exclusion for CLI publish
+  - Security: Path traversal protection on file upload and install
+  - UI components: FileBrowser, FileUploader integrated in SkillTabs and CreateSkill
 - 2025-02-05: Initial project setup with full CRUD for skills, versioning, validation, and user profiles

@@ -55,7 +55,7 @@ export default function Profile() {
   const { data: starredSkills = [] } = useQuery({
     queryKey: ["/api/my-stars"],
     queryFn: async () => {
-      const res = await fetch("/api/my-stars");
+      const res = await fetch("/api/my-stars", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -67,6 +67,7 @@ export default function Profile() {
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ handle: editHandle, bio: editBio }),
       });
       if (!res.ok) {

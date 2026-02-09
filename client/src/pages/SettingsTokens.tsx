@@ -26,7 +26,7 @@ export default function SettingsTokens() {
   const { data: tokens = [], isLoading: tokensLoading } = useQuery({
     queryKey: ["/api/tokens"],
     queryFn: async () => {
-      const res = await fetch("/api/tokens");
+      const res = await fetch("/api/tokens", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch tokens");
       return res.json();
     },
@@ -37,6 +37,7 @@ export default function SettingsTokens() {
       const res = await fetch("/api/tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ name: tokenName }),
       });
       if (!res.ok) {
@@ -58,7 +59,7 @@ export default function SettingsTokens() {
 
   const revokeToken = useMutation({
     mutationFn: async (tokenId: string) => {
-      const res = await fetch(`/api/tokens/${tokenId}`, { method: "DELETE" });
+      const res = await fetch(`/api/tokens/${tokenId}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Failed to revoke token");
       return res.json();
     },

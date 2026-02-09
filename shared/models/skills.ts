@@ -1,6 +1,6 @@
 import { sql, relations } from "drizzle-orm";
 import { pgTable, varchar, text, timestamp, boolean, integer, jsonb, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { users } from "./auth.js";
+import { users } from "./auth";
 
 export const skills = pgTable("skills", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -53,6 +53,26 @@ export const skillVersions = pgTable("skill_versions", {
   uniqueIndex("skill_versions_skill_version_idx").on(table.skillId, table.version),
 ]);
 
+export const skillFiles = pgTable("skill_files", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  versionId: uuid("version_id").notNull().references(() => skillVersions.id, { onDelete: "cascade" }),
+  path: varchar("path", { length: 500 }).notNull(),
+  content: text("content"),
+  binaryContent: text("binary_content"),
+  isBinary: boolean("is_binary").default(false),
+  size: integer("size").default(0),
+  sha256: varchar("sha256", { length: 64 }),
+  mimeType: varchar("mime_type", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("skill_files_version_path_idx").on(table.versionId, table.path),
+  index("skill_files_version_idx").on(table.versionId),
+]);
+
+export const skillFilesRelations = relations(skillFiles, ({ one }) => ({
+  version: one(skillVersions, { fields: [skillFiles.versionId], references: [skillVersions.id] }),
+}));
+
 export const skillValidations = pgTable("skill_validations", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   versionId: uuid("version_id").notNull().references(() => skillVersions.id, { onDelete: "cascade" }),
@@ -87,6 +107,7 @@ export const skillsRelations = relations(skills, ({ one, many }) => ({
 export const skillVersionsRelations = relations(skillVersions, ({ one, many }) => ({
   skill: one(skills, { fields: [skillVersions.skillId], references: [skills.id] }),
   validations: many(skillValidations),
+  files: many(skillFiles),
 }));
 
 export const skillValidationsRelations = relations(skillValidations, ({ one }) => ({

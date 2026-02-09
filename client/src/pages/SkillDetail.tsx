@@ -34,7 +34,7 @@ export default function SkillDetail() {
   const { data: starStatus } = useQuery({
     queryKey: ["/api/skills", skill?.id, "starred"],
     queryFn: async () => {
-      const res = await fetch(`/api/skills/${skill?.id}/starred`);
+      const res = await fetch(`/api/skills/${skill?.id}/starred`, { credentials: "include" });
       return res.json();
     },
     enabled: !!skill?.id && !!user,
@@ -42,7 +42,7 @@ export default function SkillDetail() {
 
   const starMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/skills/${skill?.id}/star`, { method: "POST" });
+      const res = await fetch(`/api/skills/${skill?.id}/star`, { method: "POST", credentials: "include" });
       return res.json();
     },
     onSuccess: () => {

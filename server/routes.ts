@@ -1,11 +1,12 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db.js";
-import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, skillIssues, issueComments, skillPullRequests, prComments, users, apiTokens } from "../shared/schema.js";
+import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, skillIssues, issueComments, skillPullRequests, prComments, users, apiTokens, skillFiles } from "../shared/schema.js";
 import { eq, desc, and, ilike, sql, or } from "drizzle-orm";
-import { isAuthenticated } from "./replit_integrations/auth/index.js";
+import { isAuthenticated, getCurrentUser } from "./auth.js";
 import multer from "multer";
 import matter from "gray-matter";
 import crypto from "crypto";
+import archiver from "archiver";
 import { validateSkillMd } from "./validation.js";
 import { skillTemplates, getTemplateById } from "./skill-templates.js";
 import { checkDependencies, parseDependenciesFromSkillMd } from "./dependency-checker.js";
@@ -130,6 +131,186 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // IMPORTANT: These specific routes must come BEFORE the /:owner/:slug catch-all
+  // Forward to the actual handlers defined later
+  app.get("/api/skills/trending", async (req: Request, res: Response, next) => next("route"));
+  
+  // Skill-ID based routes (must come before /:owner/:slug)
+  app.get("/api/skills/:skillId/starred", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      const userId = (req.session as any)?.userId;
+      if (!userId) return res.json({ starred: false });
+      
+      const existing = await db.select().from(skillStars).where(and(eq(skillStars.skillId, skillId), eq(skillStars.userId, userId))).limit(1);
+      res.json({ starred: existing.length > 0 });
+    } catch (error) {
+      res.json({ starred: false });
+    }
+  });
+
+  app.get("/api/skills/:skillId/activity", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      const activities = await db.select({
+        id: skillActivities.id,
+        action: skillActivities.action,
+        details: skillActivities.details,
+        createdAt: skillActivities.createdAt,
+        user: {
+          firstName: users.firstName,
+          lastName: users.lastName,
+          handle: users.handle,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+        .from(skillActivities)
+        .leftJoin(users, eq(skillActivities.userId, users.id))
+        .where(eq(skillActivities.skillId, skillId))
+        .orderBy(desc(skillActivities.createdAt))
+        .limit(limit);
+      
+      res.json(activities);
+    } catch (error) {
+      res.json([]);
+    }
+  });
+
+  app.get("/api/skills/:skillId/comments", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      
+      const comments = await db.select({
+        id: skillComments.id,
+        content: skillComments.content,
+        parentId: skillComments.parentId,
+        isEdited: skillComments.isEdited,
+        createdAt: skillComments.createdAt,
+        user: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          handle: users.handle,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+        .from(skillComments)
+        .leftJoin(users, eq(skillComments.userId, users.id))
+        .where(eq(skillComments.skillId, skillId))
+        .orderBy(desc(skillComments.createdAt));
+      
+      res.json(comments);
+    } catch (error) {
+      res.json([]);
+    }
+  });
+
+  app.get("/api/skills/:skillId/pulls", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      const { state = "open" } = req.query;
+      
+      const prs = await db.query.skillPullRequests.findMany({
+        where: state === "all" 
+          ? eq(skillPullRequests.skillId, skillId)
+          : and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.state, state as string)),
+        with: { author: true },
+        orderBy: [desc(skillPullRequests.createdAt)],
+      });
+      
+      res.json(prs);
+    } catch (error) {
+      res.json([]);
+    }
+  });
+
+  app.get("/api/skills/:skillId/issues", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      const { state = "open" } = req.query;
+      
+      const issues = await db.query.skillIssues.findMany({
+        where: state === "all" 
+          ? eq(skillIssues.skillId, skillId)
+          : and(eq(skillIssues.skillId, skillId), eq(skillIssues.state, state as string)),
+        with: { author: true },
+        orderBy: [desc(skillIssues.createdAt)],
+      });
+      
+      res.json(issues);
+    } catch (error) {
+      res.json([]);
+    }
+  });
+
+  // Delete skill (owner only)
+  app.delete("/api/skills/:skillId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.session as any)?.userId;
+      const skillId = req.params.skillId as string;
+      
+      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
+      if (!skill) return res.status(404).json({ message: "Skill not found" });
+      if (skill.ownerId !== userId) return res.status(403).json({ message: "Not authorized to delete this skill" });
+      
+      await db.delete(skills).where(eq(skills.id, skillId));
+      res.json({ message: "Skill deleted successfully" });
+    } catch (error) {
+      console.error("Delete skill error:", error);
+      res.status(500).json({ message: "Failed to delete skill" });
+    }
+  });
+
+  // Validate skill on demand
+  app.post("/api/skills/:skillId/validate", async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.skillId as string;
+      
+      const [latestVersion] = await db.select()
+        .from(skillVersions)
+        .where(and(eq(skillVersions.skillId, skillId), eq(skillVersions.isLatest, true)))
+        .limit(1);
+      
+      if (!latestVersion) {
+        return res.status(404).json({ message: "No version found for this skill" });
+      }
+      
+      let manifest: Record<string, any> = {};
+      const fmMatch = latestVersion.skillMd.match(/^---\n([\s\S]*?)\n---/);
+      if (fmMatch) {
+        try {
+          const lines = fmMatch[1].split('\n');
+          for (const line of lines) {
+            const [key, ...rest] = line.split(':');
+            if (key && rest.length) manifest[key.trim()] = rest.join(':').trim();
+          }
+        } catch {}
+      }
+      
+      const validationResult = await validateSkillMd(latestVersion.skillMd, manifest);
+      
+      await db.delete(skillValidations).where(eq(skillValidations.versionId, latestVersion.id));
+      await db.insert(skillValidations).values({
+        versionId: latestVersion.id,
+        status: validationResult.passed ? "passed" : "failed",
+        score: validationResult.score,
+        checks: validationResult.checks,
+      });
+      
+      res.json({
+        passed: validationResult.passed,
+        score: validationResult.score,
+        checks: validationResult.checks,
+        version: latestVersion.version,
+      });
+    } catch (error) {
+      console.error("Validate skill error:", error);
+      res.status(500).json({ message: "Failed to validate skill" });
+    }
+  });
+
   app.get("/api/skills/:owner/:slug", async (req: Request, res: Response) => {
     try {
       const owner = req.params.owner as string;
@@ -248,9 +429,267 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // File management endpoints
+  app.get("/api/skills/:owner/:slug/files", async (req: Request, res: Response) => {
+    try {
+      const { owner, slug } = req.params;
+      const version = req.query.version as string | undefined;
+
+      const ownerUser = await db.select().from(users).where(
+        or(eq(users.handle, owner), eq(users.id, owner))
+      ).limit(1);
+
+      if (!ownerUser.length) {
+        return res.status(404).json({ message: "Skill not found" });
+      }
+
+      const skill = await db.select()
+        .from(skills)
+        .where(and(eq(skills.ownerId, ownerUser[0].id), eq(skills.slug, slug)))
+        .limit(1);
+
+      if (!skill.length) {
+        return res.status(404).json({ message: "Skill not found" });
+      }
+
+      let versionData;
+      if (version) {
+        versionData = await db.select()
+          .from(skillVersions)
+          .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.version, version)))
+          .limit(1);
+      } else {
+        versionData = await db.select()
+          .from(skillVersions)
+          .where(eq(skillVersions.skillId, skill[0].id))
+          .orderBy(desc(skillVersions.publishedAt))
+          .limit(1);
+      }
+
+      if (!versionData.length) {
+        return res.status(404).json({ message: "Version not found" });
+      }
+
+      const files = await db.select({
+        id: skillFiles.id,
+        path: skillFiles.path,
+        size: skillFiles.size,
+        isBinary: skillFiles.isBinary,
+        mimeType: skillFiles.mimeType,
+        sha256: skillFiles.sha256,
+        createdAt: skillFiles.createdAt,
+      })
+        .from(skillFiles)
+        .where(eq(skillFiles.versionId, versionData[0].id))
+        .orderBy(skillFiles.path);
+
+      // Also include SKILL.md from the version itself if no files exist
+      const allFiles = files.length > 0 ? files : [{
+        id: versionData[0].id,
+        path: "SKILL.md",
+        size: versionData[0].skillMd?.length || 0,
+        isBinary: false,
+        mimeType: "text/markdown",
+        sha256: null,
+        createdAt: versionData[0].createdAt,
+      }];
+
+      res.json({ 
+        version: versionData[0].version, 
+        files: allFiles,
+        totalFiles: allFiles.length,
+        totalSize: allFiles.reduce((sum, f) => sum + (f.size || 0), 0),
+      });
+    } catch (error) {
+      console.error("Error fetching files:", error);
+      res.status(500).json({ message: "Failed to fetch files" });
+    }
+  });
+
+  app.get("/api/skills/:owner/:slug/files/*", async (req: Request, res: Response) => {
+    try {
+      const { owner, slug } = req.params;
+      const filePath = req.params[0];
+      const version = req.query.version as string | undefined;
+
+      if (!filePath) {
+        return res.status(400).json({ message: "File path required" });
+      }
+
+      const ownerUser = await db.select().from(users).where(
+        or(eq(users.handle, owner), eq(users.id, owner))
+      ).limit(1);
+
+      if (!ownerUser.length) {
+        return res.status(404).json({ message: "Skill not found" });
+      }
+
+      const skill = await db.select()
+        .from(skills)
+        .where(and(eq(skills.ownerId, ownerUser[0].id), eq(skills.slug, slug)))
+        .limit(1);
+
+      if (!skill.length) {
+        return res.status(404).json({ message: "Skill not found" });
+      }
+
+      let versionData;
+      if (version) {
+        versionData = await db.select()
+          .from(skillVersions)
+          .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.version, version)))
+          .limit(1);
+      } else {
+        versionData = await db.select()
+          .from(skillVersions)
+          .where(eq(skillVersions.skillId, skill[0].id))
+          .orderBy(desc(skillVersions.publishedAt))
+          .limit(1);
+      }
+
+      if (!versionData.length) {
+        return res.status(404).json({ message: "Version not found" });
+      }
+
+      // Handle SKILL.md specially - it's stored in the version record
+      if (filePath === "SKILL.md" || filePath === "skill.md") {
+        return res.json({
+          path: "SKILL.md",
+          content: versionData[0].skillMd,
+          size: versionData[0].skillMd?.length || 0,
+          isBinary: false,
+          mimeType: "text/markdown",
+        });
+      }
+
+      const file = await db.select()
+        .from(skillFiles)
+        .where(and(eq(skillFiles.versionId, versionData[0].id), eq(skillFiles.path, filePath)))
+        .limit(1);
+
+      if (!file.length) {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      res.json({
+        path: file[0].path,
+        content: file[0].isBinary ? null : file[0].content,
+        binaryContent: file[0].isBinary ? file[0].binaryContent : null,
+        size: file[0].size,
+        isBinary: file[0].isBinary,
+        mimeType: file[0].mimeType,
+        sha256: file[0].sha256,
+      });
+    } catch (error) {
+      console.error("Error fetching file:", error);
+      res.status(500).json({ message: "Failed to fetch file" });
+    }
+  });
+
+  app.post("/api/skills/:id/versions/:versionId/files", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = (req.session as any)?.userId;
+      const { id: skillId, versionId } = req.params;
+      const { files } = req.body;
+
+      if (!Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ message: "Files array is required" });
+      }
+
+      const skill = await db.select()
+        .from(skills)
+        .where(eq(skills.id, skillId))
+        .limit(1);
+
+      if (!skill.length || skill[0].ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const version = await db.select()
+        .from(skillVersions)
+        .where(and(eq(skillVersions.id, versionId), eq(skillVersions.skillId, skillId)))
+        .limit(1);
+
+      if (!version.length) {
+        return res.status(404).json({ message: "Version not found" });
+      }
+
+      const insertedFiles = [];
+      for (const file of files) {
+        if (!file.path || (file.content === undefined && file.binaryContent === undefined)) {
+          continue;
+        }
+
+        const isBinary = !!file.binaryContent;
+        const content = isBinary ? null : file.content;
+        const binaryContent = isBinary ? file.binaryContent : null;
+        const size = isBinary ? (file.binaryContent?.length || 0) : (file.content?.length || 0);
+        const sha256Hash = crypto.createHash("sha256").update(file.content || file.binaryContent || "").digest("hex");
+
+        const [inserted] = await db.insert(skillFiles)
+          .values({
+            versionId,
+            path: file.path,
+            content,
+            binaryContent,
+            isBinary,
+            size,
+            sha256: sha256Hash,
+            mimeType: file.mimeType || getMimeType(file.path),
+          })
+          .onConflictDoUpdate({
+            target: [skillFiles.versionId, skillFiles.path],
+            set: { content, binaryContent, isBinary, size, sha256: sha256Hash, mimeType: file.mimeType || getMimeType(file.path) },
+          })
+          .returning();
+
+        insertedFiles.push(inserted);
+      }
+
+      res.json({ message: "Files uploaded", files: insertedFiles });
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      res.status(500).json({ message: "Failed to upload files" });
+    }
+  });
+
+  function getMimeType(path: string): string {
+    const ext = path.split(".").pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      md: "text/markdown",
+      txt: "text/plain",
+      js: "application/javascript",
+      ts: "application/typescript",
+      py: "text/x-python",
+      json: "application/json",
+      yaml: "text/yaml",
+      yml: "text/yaml",
+      sh: "application/x-sh",
+      bash: "application/x-sh",
+      html: "text/html",
+      css: "text/css",
+      svg: "image/svg+xml",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      pdf: "application/pdf",
+    };
+    return mimeTypes[ext || ""] || "application/octet-stream";
+  }
+
+  function isValidFilePath(filePath: string): boolean {
+    if (!filePath || typeof filePath !== 'string') return false;
+    const normalized = filePath.normalize();
+    if (normalized.includes('..') || normalized.startsWith('/') || normalized.includes('\\')) return false;
+    if (normalized.startsWith('.') && normalized !== '.gitkeep') return false;
+    if (/[<>:"|?*\x00-\x1f]/.test(normalized)) return false;
+    return true;
+  }
+
   app.post("/api/skills", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { name, slug, description, isPublic = true, tags = [] } = req.body;
 
       if (!name || !slug) {
@@ -292,9 +731,9 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/skills/:skillId/versions", isAuthenticated, upload.single("file"), async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
-      const { version, skillMd, readme, changelog } = req.body;
+      const { version, skillMd, readme, changelog, files } = req.body;
 
       const skill = await db.select()
         .from(skills)
@@ -354,6 +793,33 @@ export function registerRoutes(app: Express) {
         finishedAt: new Date(),
       });
 
+      // Insert additional files if provided (with path validation)
+      if (files && Array.isArray(files)) {
+        for (const file of files) {
+          if (file.path && file.content && file.path !== "SKILL.md" && isValidFilePath(file.path)) {
+            const content = file.content;
+            const size = Buffer.byteLength(content, 'utf8');
+            if (size > 1024 * 1024) continue; // Skip files > 1MB
+            const ext = file.path.split('.').pop()?.toLowerCase() || '';
+            const mimeType = getMimeType(ext);
+            
+            await db.insert(skillFiles)
+              .values({
+                versionId: newVersion.id,
+                path: file.path,
+                content,
+                size,
+                mimeType,
+                isBinary: false,
+              })
+              .onConflictDoUpdate({
+                target: [skillFiles.versionId, skillFiles.path],
+                set: { content, size, mimeType, updatedAt: new Date() },
+              });
+          }
+        }
+      }
+
       res.status(201).json(newVersion);
     } catch (error) {
       console.error("Error creating version:", error);
@@ -363,7 +829,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/skills/:skillId/star", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
 
       const existing = await db.select()
@@ -433,7 +899,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/skills/:skillId/starred", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
 
       const existing = await db.select()
@@ -510,7 +976,7 @@ export function registerRoutes(app: Express) {
   app.post("/api/skills/:skillId/comments", isAuthenticated, async (req: any, res: Response) => {
     try {
       const skillId = req.params.skillId as string;
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { content, parentId } = req.body;
 
       if (!content || content.trim().length === 0) {
@@ -543,7 +1009,7 @@ export function registerRoutes(app: Express) {
   app.delete("/api/comments/:commentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const commentId = req.params.commentId as string;
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
 
       const [comment] = await db.select()
         .from(skillComments)
@@ -569,7 +1035,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/my-skills", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       
       const result = await db.select()
         .from(skills)
@@ -585,7 +1051,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/my-stars", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const limit = parseInt(req.query.limit as string) || 50;
       
       const starred = await db.select({
@@ -631,7 +1097,7 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/skills/:skillId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
       const { name, description, isPublic, tags, homepage } = req.body;
 
@@ -658,7 +1124,7 @@ export function registerRoutes(app: Express) {
 
   app.delete("/api/skills/:skillId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
 
       const skill = await db.select()
@@ -713,7 +1179,7 @@ export function registerRoutes(app: Express) {
 
   app.put("/api/profile", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { handle, bio } = req.body;
 
       if (handle) {
@@ -770,7 +1236,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/tokens", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const tokens = await db.select({
         id: apiTokens.id,
         name: apiTokens.name,
@@ -791,7 +1257,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/tokens", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { name, scopes = ["read", "write"], expiresIn } = req.body;
 
       if (!name || name.length > 100) {
@@ -822,7 +1288,7 @@ export function registerRoutes(app: Express) {
 
   app.delete("/api/tokens/:tokenId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any)?.userId;
       const { tokenId } = req.params;
 
       const [token] = await db.select()
@@ -897,7 +1363,7 @@ export function registerRoutes(app: Express) {
     try {
       const user = req.tokenUser;
       const { owner, slug } = req.params;
-      const { version, skillMd, readme, changelog } = req.body;
+      const { version, skillMd, readme, changelog, files } = req.body;
 
       if (user.handle !== owner && user.id !== owner) {
         return res.status(403).json({ message: "You can only publish to your own skills" });
@@ -973,12 +1439,40 @@ export function registerRoutes(app: Express) {
         finishedAt: new Date(),
       });
 
+      // Insert additional files if provided (with path validation)
+      if (files && Array.isArray(files)) {
+        for (const file of files) {
+          if (file.path && file.content && file.path !== "SKILL.md" && isValidFilePath(file.path)) {
+            const content = file.content;
+            const size = Buffer.byteLength(content, 'utf8');
+            if (size > 1024 * 1024) continue; // Skip files > 1MB
+            const ext = file.path.split('.').pop()?.toLowerCase() || '';
+            const mimeType = getMimeType(ext);
+            
+            await db.insert(skillFiles)
+              .values({
+                versionId: newVersion.id,
+                path: file.path,
+                content,
+                size,
+                mimeType,
+                isBinary: false,
+              })
+              .onConflictDoUpdate({
+                target: [skillFiles.versionId, skillFiles.path],
+                set: { content, size, mimeType, updatedAt: new Date() },
+              });
+          }
+        }
+      }
+
       logActivity(skill[0].id, user.id, "publish", { version: newVersion.version });
 
       res.status(201).json({
         skill: { owner: user.handle, slug: skill[0].slug },
         version: newVersion.version,
         validation: validationResult,
+        filesCount: (files?.length || 0) + 1,
       });
     } catch (error) {
       console.error("Error publishing via CLI:", error);
@@ -1061,17 +1555,32 @@ export function registerRoutes(app: Express) {
     res.json(template);
   });
 
+  // Helper to get user's OpenAI API key
+  async function getUserApiKey(req: Request): Promise<string | null> {
+    const userId = (req.session as any)?.userId;
+    if (!userId) return null;
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return user?.openaiApiKey || null;
+  }
+
   // AI-powered Skill Explainer
-  app.post("/api/skills/explain", async (req: Request, res: Response) => {
+  app.post("/api/skills/explain", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { skillMd } = req.body;
       if (!skillMd) {
         return res.status(400).json({ message: "SKILL.md content is required" });
       }
-      const explanation = await explainSkill(skillMd);
+      const apiKey = await getUserApiKey(req);
+      if (!apiKey) {
+        return res.status(400).json({ message: "OpenAI API key required. Add your key in Settings > AI." });
+      }
+      const explanation = await explainSkill(skillMd, apiKey);
       res.json(explanation);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error explaining skill:", error);
+      if (error?.status === 401) {
+        return res.status(400).json({ message: "Invalid OpenAI API key. Please check your key in Settings > AI." });
+      }
       res.status(500).json({ message: "Failed to explain skill" });
     }
   });
@@ -1083,20 +1592,31 @@ export function registerRoutes(app: Express) {
       if (!prompt) {
         return res.status(400).json({ message: "Prompt is required" });
       }
-      const generated = await generateSkill(prompt, { category, complexity });
+      const apiKey = await getUserApiKey(req);
+      if (!apiKey) {
+        return res.status(400).json({ message: "OpenAI API key required. Add your key in Settings > AI." });
+      }
+      const generated = await generateSkill(prompt, apiKey, { category, complexity });
       res.json(generated);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating skill:", error);
+      if (error?.status === 401) {
+        return res.status(400).json({ message: "Invalid OpenAI API key. Please check your key in Settings > AI." });
+      }
       res.status(500).json({ message: "Failed to generate skill" });
     }
   });
 
   // AI-powered Skill Chat (streaming)
-  app.post("/api/skills/chat", async (req: Request, res: Response) => {
+  app.post("/api/skills/chat", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { skillMd, message, history } = req.body;
       if (!skillMd || !message) {
         return res.status(400).json({ message: "skillMd and message are required" });
+      }
+      const apiKey = await getUserApiKey(req);
+      if (!apiKey) {
+        return res.status(400).json({ message: "OpenAI API key required. Add your key in Settings > AI." });
       }
 
       res.setHeader("Content-Type", "text/event-stream");
@@ -1104,7 +1624,7 @@ export function registerRoutes(app: Express) {
       res.setHeader("Connection", "keep-alive");
 
       const chatHistory: ChatMessage[] = history || [];
-      const stream = chatAboutSkill(skillMd, message, chatHistory);
+      const stream = chatAboutSkill(skillMd, message, apiKey, chatHistory);
 
       for await (const chunk of stream) {
         res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
@@ -1112,12 +1632,15 @@ export function registerRoutes(app: Express) {
 
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in skill chat:", error);
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: "Failed to process chat" })}\n\n`);
         res.end();
       } else {
+        if (error?.status === 401) {
+          return res.status(400).json({ message: "Invalid OpenAI API key. Please check your key in Settings > AI." });
+        }
         res.status(500).json({ message: "Failed to process chat" });
       }
     }
@@ -1173,6 +1696,14 @@ export function registerRoutes(app: Express) {
 
       logActivity(skill[0].id, null, "install", { version: versionData.version });
 
+      // Get additional files for this version
+      const versionFiles = await db.select({
+        path: skillFiles.path,
+        content: skillFiles.content,
+        size: skillFiles.size,
+        isBinary: skillFiles.isBinary,
+      }).from(skillFiles).where(eq(skillFiles.versionId, versionData.id));
+
       res.json({
         skill: {
           name: skill[0].name,
@@ -1183,6 +1714,7 @@ export function registerRoutes(app: Express) {
         skillMd: versionData.skillMd,
         manifest: versionData.manifest,
         readme: versionData.readme,
+        files: versionFiles,
       });
     } catch (error) {
       console.error("Error installing skill:", error);
@@ -1255,10 +1787,66 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Download skill as ZIP with all files
+  app.get("/api/skills/:owner/:slug/download-zip/:version?", async (req: Request, res: Response) => {
+    try {
+      const owner = req.params.owner as string;
+      const slug = req.params.slug as string;
+      const version = req.params.version as string | undefined;
+      
+      const [ownerUser] = await db.select().from(users).where(eq(users.handle, owner)).limit(1);
+      if (!ownerUser) return res.status(404).json({ message: "User not found" });
+      
+      const [skill] = await db.select().from(skills).where(and(eq(skills.ownerId, ownerUser.id), eq(skills.slug, slug))).limit(1);
+      if (!skill) return res.status(404).json({ message: "Skill not found" });
+      
+      let versionData;
+      if (version && version !== "latest") {
+        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.version, version))).limit(1);
+      } else {
+        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.isLatest, true))).limit(1);
+      }
+      
+      if (!versionData) return res.status(404).json({ message: "Version not found" });
+      
+      // Get all files for this version
+      const files = await db.select().from(skillFiles).where(eq(skillFiles.versionId, versionData.id));
+      
+      // Increment download count
+      await db.update(skillVersions)
+        .set({ downloads: sql`COALESCE(downloads, 0) + 1` })
+        .where(eq(skillVersions.id, versionData.id));
+      await db.update(skills)
+        .set({ weeklyDownloads: sql`COALESCE(weekly_downloads, 0) + 1` })
+        .where(eq(skills.id, skill.id));
+      
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${skill.slug}-${versionData.version}.zip"`);
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      archive.pipe(res);
+      
+      // Add SKILL.md
+      archive.append(versionData.skillMd, { name: "SKILL.md" });
+      
+      // Add all other files
+      for (const file of files) {
+        if (file.path !== "SKILL.md" && file.content) {
+          archive.append(file.content, { name: file.path });
+        }
+      }
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("ZIP download error:", error);
+      res.status(500).json({ message: "Failed to download skill" });
+    }
+  });
+
   // Fork a skill
   app.post("/api/skills/:id/fork", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.userId;
       const id = req.params.id as string;
       
       const [originalSkill] = await db.select().from(skills).where(eq(skills.id, id)).limit(1);
@@ -1324,7 +1912,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/skills/:id/issues", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.userId;
       const id = req.params.id as string;
       const { title, body, labels } = req.body;
       
@@ -1370,7 +1958,7 @@ export function registerRoutes(app: Express) {
 
   app.patch("/api/skills/:skillId/issues/:number", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.userId;
       const skillId = req.params.skillId as string;
       const number = req.params.number as string;
       const { state, title, body } = req.body;
@@ -1400,7 +1988,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/skills/:skillId/issues/:number/comments", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.userId;
       const skillId = req.params.skillId as string;
       const number = req.params.number as string;
       const { body } = req.body;
@@ -1444,7 +2032,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/skills/:id/pulls", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.userId;
       const id = req.params.id as string;
       const { title, body, proposedSkillMd, baseVersion } = req.body;
       
@@ -1492,7 +2080,7 @@ export function registerRoutes(app: Express) {
 
   app.patch("/api/skills/:skillId/pulls/:number", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.userId;
       const skillId = req.params.skillId as string;
       const number = req.params.number as string;
       const { state, title, body } = req.body;
@@ -1524,7 +2112,7 @@ export function registerRoutes(app: Express) {
   // Merge a PR (only skill owner can do this)
   app.post("/api/skills/:skillId/pulls/:number/merge", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.userId;
       const skillId = req.params.skillId as string;
       const number = req.params.number as string;
       const { newVersion } = req.body;

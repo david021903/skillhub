@@ -46,6 +46,7 @@ export function SkillComments({ skillId, currentUserId }: SkillCommentsProps) {
       const res = await fetch(`/api/skills/${skillId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ content }),
       });
       if (!res.ok) {
@@ -68,6 +69,7 @@ export function SkillComments({ skillId, currentUserId }: SkillCommentsProps) {
     mutationFn: async (commentId: string) => {
       const res = await fetch(`/api/comments/${commentId}`, {
         method: "DELETE",
+        credentials: "include",
       });
       if (!res.ok) {
         const err = await res.json();

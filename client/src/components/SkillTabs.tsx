@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Code, MessageCircle, GitPullRequest, Download, GitFork, Clock, CheckCircle, XCircle, Plus } from "lucide-react";
+import { Code, MessageCircle, GitPullRequest, Download, GitFork, Clock, CheckCircle, XCircle, Plus, Pencil, X, Save, Trash2, ShieldCheck, AlertTriangle, FolderOpen } from "lucide-react";
+import { FileBrowser } from "./FileBrowser";
+import { useLocation } from "wouter";
 
 interface SkillTabsProps {
   skill: any;
@@ -21,6 +23,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showNewPR, setShowNewPR] = useState(false);
@@ -29,6 +32,18 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
   const [prTitle, setPrTitle] = useState("");
   const [prBody, setPrBody] = useState("");
   const [prSkillMd, setPrSkillMd] = useState("");
+  
+  // Edit mode state (GitHub-like flow)
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [commitMessage, setCommitMessage] = useState("");
+  const [newVersion, setNewVersion] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  
+  const skillOwnerId = skill?.ownerId || skill?.owner?.id;
+  const isOwner = user?.id && skillOwnerId && String(user.id) === String(skillOwnerId);
 
   const { data: issues } = useQuery({
     queryKey: ["/api/skills", skill?.id, "issues"],
@@ -50,7 +65,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
 
   const forkMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/skills/${skill.id}/fork`, { method: "POST" });
+      const res = await fetch(`/api/skills/${skill.id}/fork`, { method: "POST", credentials: "include" });
       if (!res.ok) throw new Error("Failed to fork");
       return res.json();
     },
@@ -66,6 +81,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
       const res = await fetch(`/api/skills/${skill.id}/issues`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ title: issueTitle, body: issueBody }),
       });
       if (!res.ok) throw new Error("Failed to create issue");
@@ -85,6 +101,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
       const res = await fetch(`/api/skills/${skill.id}/pulls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ 
           title: prTitle, 
           body: prBody, 
@@ -104,6 +121,95 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/skills", skill.id, "pulls"] });
     },
   });
+
+  // Commit changes mutation (GitHub-like save)
+  const commitMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/skills/${skill.id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ 
+          skillMd: editedContent,
+          version: newVersion,
+          changelog: commitMessage 
+        }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to commit changes");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Changes committed!", description: `Version ${newVersion} published` });
+      setIsEditing(false);
+      setEditedContent("");
+      setCommitMessage("");
+      setNewVersion("");
+      queryClient.invalidateQueries({ queryKey: ["/api/skills", owner, slug] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const startEditing = () => {
+    const currentContent = displayedVersion?.skillMd || "";
+    setEditedContent(currentContent);
+    const currentVersion = displayedVersion?.version || "1.0.0";
+    const parts = currentVersion.split(".");
+    parts[2] = String(parseInt(parts[2] || "0") + 1);
+    setNewVersion(parts.join("."));
+    setCommitMessage("");
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditedContent("");
+    setCommitMessage("");
+    setNewVersion("");
+  };
+
+  // Delete skill mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/skills/${skill.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to delete skill");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Skill deleted", description: "The skill has been permanently deleted" });
+      setLocation("/my-skills");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Validate skill
+  const runValidation = async () => {
+    setIsValidating(true);
+    setValidationResult(null);
+    try {
+      const res = await fetch(`/api/skills/${skill.id}/validate`, { method: "POST", credentials: "include" });
+      const result = await res.json();
+      setValidationResult(result);
+      if (result.passed) {
+        toast({ title: "Validation passed!", description: `Score: ${result.score}%` });
+      } else {
+        toast({ title: "Validation issues found", description: `Score: ${result.score}%`, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to validate skill", variant: "destructive" });
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   const displayedVersion = selectedVersion 
     ? skill.versions?.find((v: any) => v.version === selectedVersion)
@@ -130,14 +236,97 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
         </TabsList>
         
         <div className="flex gap-2">
-          {user && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2" 
+            onClick={runValidation} 
+            disabled={isValidating}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            {isValidating ? "Validating..." : "Validate"}
+          </Button>
+          {user && !isOwner && (
             <Button variant="outline" size="sm" className="gap-2" onClick={() => forkMutation.mutate()} disabled={forkMutation.isPending}>
               <GitFork className="h-4 w-4" />
               Fork {skill.forks > 0 && `(${skill.forks})`}
             </Button>
           )}
+          {isOwner && (
+            <>
+              {!showDeleteConfirm ? (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 text-destructive hover:text-destructive" 
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              ) : (
+                <div className="flex gap-2 items-center">
+                  <span className="text-sm text-destructive">Delete this skill?</span>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => deleteMutation.mutate()}
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? "Deleting..." : "Confirm"}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
+
+      {/* Validation Results */}
+      {validationResult && (
+        <Card className={`mb-4 ${validationResult.passed ? "border-green-500" : "border-yellow-500"}`}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                {validationResult.passed ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                )}
+                Validation Results
+              </CardTitle>
+              <Badge variant={validationResult.passed ? "default" : "secondary"}>
+                Score: {validationResult.score}%
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {validationResult.checks?.map((check: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  {check.status === "passed" ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : check.status === "warning" ? (
+                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className={check.status === "failed" ? "text-red-600" : ""}>
+                    {check.message}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <TabsContent value="code" className="space-y-4">
         <Card>
@@ -195,21 +384,110 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
           </CardContent>
         </Card>
 
+        {/* File Browser - GitHub-like file tree */}
+        <FileBrowser 
+          owner={owner} 
+          slug={slug} 
+          version={selectedVersion || displayedVersion?.version} 
+        />
+
         {displayedVersion?.skillMd && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-mono">SKILL.md</CardTitle>
-              <Button variant="outline" size="sm" asChild>
-                <a href={`/api/skills/${owner}/${slug}/download/${displayedVersion.version}`} download className="gap-2">
-                  <Download className="h-4 w-4" />
-                  Download
-                </a>
-              </Button>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-lg font-mono">SKILL.md</CardTitle>
+                {isEditing && <Badge variant="secondary">Editing</Badge>}
+              </div>
+              <div className="flex items-center gap-2">
+                {!isEditing ? (
+                  <>
+                    {isOwner && (
+                      <Button variant="outline" size="sm" className="gap-2" onClick={startEditing}>
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </Button>
+                    )}
+                    {!isOwner && user && (
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+                        setPrSkillMd(displayedVersion.skillMd);
+                        setShowNewPR(true);
+                      }}>
+                        <Pencil className="h-4 w-4" />
+                        Propose Changes
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`/api/skills/${owner}/${slug}/download/${displayedVersion.version}`} download className="gap-2">
+                        <Download className="h-4 w-4" />
+                        Download
+                      </a>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" className="gap-2" onClick={cancelEditing}>
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </Button>
+                  </>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm whitespace-pre-wrap font-mono">
-                {displayedVersion.skillMd}
-              </pre>
+              {isEditing ? (
+                <div className="space-y-4">
+                  <Textarea 
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    className="font-mono text-sm min-h-[400px]"
+                    placeholder="Enter your SKILL.md content..."
+                  />
+                  
+                  <Card className="border-2 border-dashed">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Commit changes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm text-muted-foreground block mb-1">New Version</label>
+                          <Input 
+                            value={newVersion}
+                            onChange={(e) => setNewVersion(e.target.value)}
+                            placeholder="1.0.1"
+                            className="font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground block mb-1">Commit message</label>
+                          <Input 
+                            value={commitMessage}
+                            onChange={(e) => setCommitMessage(e.target.value)}
+                            placeholder="Update SKILL.md"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={cancelEditing}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={() => commitMutation.mutate()}
+                          disabled={commitMutation.isPending || !editedContent || !newVersion}
+                          className="gap-2"
+                        >
+                          <Save className="h-4 w-4" />
+                          {commitMutation.isPending ? "Committing..." : "Commit changes"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm whitespace-pre-wrap font-mono">
+                  {displayedVersion.skillMd}
+                </pre>
+              )}
             </CardContent>
           </Card>
         )}

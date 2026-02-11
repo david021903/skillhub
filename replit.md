@@ -205,10 +205,15 @@ Short alias `csh` available: `csh install owner/skill`
   - Frontend: Skeleton loading animations for better UX
   - Backend: Input validation for skill creation (name, slug format, description length)
   - Backend: Input validation for profile updates (handle format, bio length)
+- 2026-02-05: Imported 90 skills under "clawskillhub" official account
+  - Created import script for batch skill importing with duplicate detection
+  - Update script downloads real SKILL.md content from source
+  - System user: clawskillhub (official account for curated skills)
 - 2026-02-05: Multi-file skill support with file browser and ZIP downloads
   - Database: skill_files table for storing multiple files per skill version
   - FileBrowser: GitHub-like tree view with file content viewer
   - FileUploader: Drag-and-drop multi-file upload in skill creation
+  - ZIP upload: Upload ZIP archives that auto-extract to files
   - ZIP download: Download entire skill as ZIP archive with all files
   - CLI: Updated publish to collect all text files, install to extract files
   - .skillignore: Pattern-based file exclusion for CLI publish

@@ -87,14 +87,14 @@ async function main() {
     }
   });
   
-  const skillhubSkills = allSkills.filter(s => s.owner?.handle === "skillhub");
-  console.log(`Found ${skillhubSkills.length} skills to update\n`);
+  const clawskillhubSkills = allSkills.filter(s => s.owner?.handle === "clawskillhub");
+  console.log(`Found ${clawskillhubSkills.length} skills to update\n`);
   
   let updated = 0;
   let failed = 0;
   
-  for (const skill of skillhubSkills) {
-    console.log(`[${updated + failed + 1}/${skillhubSkills.length}] ${skill.slug}`);
+  for (const skill of clawskillhubSkills) {
+    console.log(`[${updated + failed + 1}/${clawskillhubSkills.length}] ${skill.slug}`);
     
     const content = await downloadAndExtractSkill(skill.slug);
     if (content && content.length > 100) {

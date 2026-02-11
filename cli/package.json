@@ -1,6 +1,6 @@
 {
   "name": "clawskillhub-cli",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "ClawSkillHub CLI - Manage OpenClaw skills from the command line",
   "main": "dist/index.js",
   "bin": {

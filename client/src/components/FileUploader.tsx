@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import JSZip from "jszip";
 import { 
   Upload, 
   X, 
@@ -12,6 +13,7 @@ import {
   FileCode, 
   FileJson, 
   Folder,
+  FileArchive,
   AlertCircle 
 } from "lucide-react";
 
@@ -100,7 +102,44 @@ export function FileUploader({
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
 
+  const processZipFile = async (file: File): Promise<UploadedFile[]> => {
+    const results: UploadedFile[] = [];
+    try {
+      const zip = await JSZip.loadAsync(file);
+      
+      for (const [path, zipEntry] of Object.entries(zip.files)) {
+        if (zipEntry.dir || shouldIgnoreFile(path)) continue;
+        
+        const content = await zipEntry.async("string");
+        const isBinary = /[\x00-\x08\x0E-\x1F\x7F-\xFF]/.test(content.slice(0, 1000));
+        
+        results.push({
+          path: path.replace(/^[^/]+\//, ""),
+          content: isBinary ? "" : content,
+          size: content.length,
+          isBinary,
+        });
+      }
+      
+      toast({
+        title: "ZIP extracted",
+        description: `Extracted ${results.length} files from ${file.name}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to extract ZIP",
+        description: "Could not read the ZIP file",
+        variant: "destructive",
+      });
+    }
+    return results;
+  };
+
   const processFile = async (file: File, basePath: string = ""): Promise<UploadedFile | null> => {
+    if (file.name.endsWith(".zip")) {
+      return null;
+    }
+    
     const path = basePath ? `${basePath}/${file.name}` : file.name;
     
     if (shouldIgnoreFile(path)) {
@@ -164,10 +203,21 @@ export function FileUploader({
     setIsDragging(false);
     
     const items = e.dataTransfer.items;
+    const droppedFiles = e.dataTransfer.files;
     const newFiles: UploadedFile[] = [];
+    
+    for (let i = 0; i < droppedFiles.length; i++) {
+      if (droppedFiles[i].name.endsWith(".zip")) {
+        const zipFiles = await processZipFile(droppedFiles[i]);
+        newFiles.push(...zipFiles);
+      }
+    }
     
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+      const file = item.getAsFile();
+      if (file?.name.endsWith(".zip")) continue;
+      
       const entry = item.webkitGetAsEntry?.();
       if (entry) {
         const processed = await processEntry(entry);
@@ -195,8 +245,14 @@ export function FileUploader({
     
     const newFiles: UploadedFile[] = [];
     for (let i = 0; i < selectedFiles.length; i++) {
-      const processed = await processFile(selectedFiles[i]);
-      if (processed) newFiles.push(processed);
+      const file = selectedFiles[i];
+      if (file.name.endsWith(".zip")) {
+        const zipFiles = await processZipFile(file);
+        newFiles.push(...zipFiles);
+      } else {
+        const processed = await processFile(file);
+        if (processed) newFiles.push(processed);
+      }
     }
     
     if (files.length + newFiles.length > maxFiles) {
@@ -237,7 +293,7 @@ export function FileUploader({
       >
         <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
         <p className="text-sm text-muted-foreground mb-2">
-          Drag and drop files or folders here, or
+          Drag and drop files, folders, or ZIP archives here, or
         </p>
         <Button variant="outline" size="sm" asChild>
           <label className="cursor-pointer">
@@ -245,6 +301,7 @@ export function FileUploader({
             <input
               type="file"
               multiple
+              accept="*/*,.zip"
               className="hidden"
               onChange={handleFileSelect}
             />

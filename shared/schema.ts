@@ -1,3 +1,3 @@
-export * from "./models/auth";
-export * from "./models/skills";
-export * from "./models/chat";
+export * from "./models/auth.js";
+export * from "./models/skills.js";
+export * from "./models/chat.js";

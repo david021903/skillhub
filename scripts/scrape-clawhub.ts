@@ -4,8 +4,8 @@ import { eq, and } from "drizzle-orm";
 import * as schema from "../shared/schema.js";
 
 const CLAWHUB_BASE = "https://clawhub.ai";
-const SYSTEM_USER_HANDLE = "skillhub";
-const SYSTEM_USER_EMAIL = "system@skillhub.space";
+const SYSTEM_USER_HANDLE = "clawskillhub";
+const SYSTEM_USER_EMAIL = "system@clawskillhub.com";
 
 interface ScrapedSkill {
   owner: string;
@@ -100,9 +100,9 @@ async function main() {
     const [newUser] = await db.insert(schema.users).values({
       email: SYSTEM_USER_EMAIL,
       handle: SYSTEM_USER_HANDLE,
-      firstName: "SkillHub",
+      firstName: "ClawSkillHub",
       lastName: "Official",
-      bio: "Official SkillHub account. Curated skills for the OpenClaw community.",
+      bio: "Official ClawSkillHub account. Skills imported from ClawHub registry.",
       emailVerified: true,
     }).returning();
     systemUser = [newUser];

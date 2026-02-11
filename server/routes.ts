@@ -432,7 +432,8 @@ export function registerRoutes(app: Express) {
   // File management endpoints
   app.get("/api/skills/:owner/:slug/files", async (req: Request, res: Response) => {
     try {
-      const { owner, slug } = req.params;
+      const owner = Array.isArray(req.params.owner) ? req.params.owner[0] : req.params.owner;
+      const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
       const version = req.query.version as string | undefined;
 
       const ownerUser = await db.select().from(users).where(
@@ -508,7 +509,8 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/skills/:owner/:slug/files/*", async (req: Request, res: Response) => {
     try {
-      const { owner, slug } = req.params;
+      const owner = Array.isArray(req.params.owner) ? req.params.owner[0] : req.params.owner;
+      const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
       const filePath = req.params[0];
       const version = req.query.version as string | undefined;
 
@@ -614,7 +616,7 @@ export function registerRoutes(app: Express) {
         return res.status(404).json({ message: "Version not found" });
       }
 
-      const insertedFiles = [];
+      const insertedFiles: any[] = [];
       for (const file of files) {
         if (!file.path || (file.content === undefined && file.binaryContent === undefined)) {
           continue;
@@ -814,7 +816,7 @@ export function registerRoutes(app: Express) {
               })
               .onConflictDoUpdate({
                 target: [skillFiles.versionId, skillFiles.path],
-                set: { content, size, mimeType, updatedAt: new Date() },
+                set: { content, size, mimeType },
               });
           }
         }
@@ -1362,7 +1364,8 @@ export function registerRoutes(app: Express) {
   app.post("/api/cli/skills/:owner/:slug/publish", authenticateToken, requireScope("write"), async (req: any, res: Response) => {
     try {
       const user = req.tokenUser;
-      const { owner, slug } = req.params;
+      const owner = Array.isArray(req.params.owner) ? req.params.owner[0] : req.params.owner;
+      const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
       const { version, skillMd, readme, changelog, files } = req.body;
 
       if (user.handle !== owner && user.id !== owner) {
@@ -1460,7 +1463,7 @@ export function registerRoutes(app: Express) {
               })
               .onConflictDoUpdate({
                 target: [skillFiles.versionId, skillFiles.path],
-                set: { content, size, mimeType, updatedAt: new Date() },
+                set: { content, size, mimeType },
               });
           }
         }

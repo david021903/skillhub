@@ -1,0 +1,136 @@
+026-02-05 11:33:23.77
+77d6b46e
+System
+system: received signal terminated
+2026-02-05 12:45:50.82
+1bb1a81d
+System
+starting up user application
+2026-02-05 12:45:50.82
+1bb1a81d
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 12:45:50.82
+1bb1a81d
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 12:45:51.82
+1bb1a81d
+User
+> clawskillhub@1.0.0 start
+2026-02-05 12:45:51.82
+1bb1a81d
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 12:45:52.22
+1bb1a81d
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 12:45:52.22
+1bb1a81d
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+}
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+url: 'file:///home/runner/workspace/dist/shared/models/auth'
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+Failed to initialize app: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/workspace/dist/shared/models/auth' imported from /home/runner/workspace/dist/shared/schema.js
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at moduleResolve (node:internal/modules/esm/resolve:952:10)
+2026-02-05 12:45:52.27
+1bb1a81d
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+(node:41) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+To prepare for this change:
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+To prepare for this change:
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+(node:41) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 12:45:59.23
+1bb1a81d
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.

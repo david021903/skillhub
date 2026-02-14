@@ -81,7 +81,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <span className="text-lg">🦞</span>
               </div>
-              <span className="font-bold text-xl">ClawSkillHub</span>
+              <span className="font-bold text-xl">SkillHub</span>
             </Link>
           )}
           {collapsed && (

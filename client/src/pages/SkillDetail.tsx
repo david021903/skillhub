@@ -53,7 +53,7 @@ export default function SkillDetail() {
 
   const copyInstall = () => {
     const version = skill?.versions?.[0]?.version || "latest";
-    navigator.clipboard.writeText(`csh install ${params?.owner}/${params?.slug}@${version}`);
+    navigator.clipboard.writeText(`shsc install ${params?.owner}/${params?.slug}@${version}`);
     toast({ title: "Copied!", description: "Install command copied to clipboard" });
   };
 
@@ -208,7 +208,7 @@ export default function SkillDetail() {
         </CardHeader>
         <CardContent>
           <code className="block bg-muted p-4 rounded-lg font-mono text-sm">
-            csh install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
+            shsc install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
           </code>
         </CardContent>
       </Card>

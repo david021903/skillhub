@@ -106,7 +106,7 @@ async function checkSkill(skillRef: string, installedSkills: string[]): Promise<
     available,
     message: available
       ? `Skill '${skillRef}' is installed`
-      : `Skill '${skillRef}' is not installed. Run: csh install ${skillRef}`
+      : `Skill '${skillRef}' is not installed. Run: shsc install ${skillRef}`
   };
 }
 

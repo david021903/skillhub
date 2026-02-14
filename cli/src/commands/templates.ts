@@ -56,7 +56,7 @@ export function templateCommands(program: Command) {
         }
 
         console.log(
-          chalk.dim(`\nUse ${chalk.white("csh templates init <template-id>")} to create a new skill from a template`)
+          chalk.dim(`\nUse ${chalk.white("shsc templates init <template-id>")} to create a new skill from a template`)
         );
       } catch (error: any) {
         console.error(chalk.red("Failed to fetch templates:"), error.message);
@@ -91,12 +91,12 @@ export function templateCommands(program: Command) {
         console.log(chalk.green(`Created ${outputPath} from template "${template.name}"`));
         console.log(chalk.dim("\nNext steps:"));
         console.log(chalk.dim("  1. Edit SKILL.md with your skill details"));
-        console.log(chalk.dim("  2. Run: csh validate"));
-        console.log(chalk.dim("  3. Run: csh publish"));
+        console.log(chalk.dim("  2. Run: shsc validate"));
+        console.log(chalk.dim("  3. Run: shsc publish"));
       } catch (error: any) {
         if (error.response?.status === 404) {
           console.error(chalk.red(`Template not found: ${templateId}`));
-          console.log(chalk.dim("Run: csh templates list"));
+          console.log(chalk.dim("Run: shsc templates list"));
         } else {
           console.error(chalk.red("Failed to fetch template:"), error.message);
         }

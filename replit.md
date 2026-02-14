@@ -1,9 +1,9 @@
-# ClawSkillHub - OpenClaw Skills Registry
+# SkillHub - OpenClaw Skills Registry
 
 ## Overview
-ClawSkillHub is a full-stack "GitHub for OpenClaw Skills" registry platform where developers can discover, publish, and install AI agent skills. The platform supports skill versioning, validation, search, user profiles, and one-command installation similar to npm/GitHub workflows.
+SkillHub is a full-stack "GitHub for OpenClaw Skills" registry platform where developers can discover, publish, and install AI agent skills. The platform supports skill versioning, validation, search, user profiles, and one-command installation similar to npm/GitHub workflows.
 
-**Domain**: clawskillhub.com
+**Domain**: skillhub.space
 
 ## Tech Stack
 - **Backend**: Node.js + Express.js + TypeScript
@@ -59,7 +59,7 @@ ClawSkillHub is a full-stack "GitHub for OpenClaw Skills" registry platform wher
 4. **Validation Pipeline**: Automatic security checks and best practice validation
 5. **User Profiles**: Public profiles with skill showcase
 6. **Star System**: Star/favorite skills you like
-7. **CLI Tool (clawskillhub/csh)**: Command-line interface for developers
+7. **CLI Tool (shsc)**: Command-line interface for developers
 8. **API Tokens**: Scope-based tokens for CLI authentication
 
 ## API Endpoints
@@ -120,28 +120,33 @@ metadata:
 ...content...
 ```
 
-## CLI Tool (clawskillhub)
+## CLI Tool (shsc)
 The CLI provides a GitHub-like experience for skill management:
 ```bash
 # Authentication
-csh auth login              # Login with API token
-csh auth logout             # Logout and clear credentials
-csh auth whoami             # Show current user
+shsc auth login              # Login with API token
+shsc auth logout             # Logout and clear credentials
+shsc auth whoami             # Show current user
 
 # Skill Management
-csh init                    # Initialize new skill in current directory
-csh publish                 # Publish skill to registry
-csh install owner/skill     # Install skill to .local/skills
+shsc init                    # Initialize new skill in current directory
+shsc publish                 # Publish skill to registry
+shsc install owner/skill     # Install skill to .local/skills
 
 # Discovery
-csh search <query>          # Search for skills
-csh browse                  # Interactive skill browser
-csh validate                # Validate SKILL.md before publishing
+shsc search <query>          # Search for skills
+shsc browse                  # Interactive skill browser
+shsc validate                # Validate SKILL.md before publishing
 ```
 
-Short alias `csh` available: `csh install owner/skill`
-
 ## Recent Changes
+- 2026-02-05: Rebranded from ClawSkillHub to SkillHub
+  - Domain changed from clawskillhub.com to skillhub.space
+  - CLI renamed from clawskillhub/csh to shsc (SkillHub Space CLI)
+  - npm package renamed from clawskillhub-cli to shsc
+  - Updated all frontend, backend, and documentation references
+  - System user renamed from clawskillhub to skillhub
+  - Now at 1,006+ validated skills in the registry
 - 2026-02-05: Custom authentication system (replacing Replit OAuth)
   - Email/password registration and login with bcrypt hashing
   - Google OAuth integration with account linking
@@ -164,10 +169,6 @@ Short alias `csh` available: `csh install owner/skill`
   - CreateSkill form now has GitHub-like visibility selector (Public/Private)
   - Comments system: skill_comments table, API endpoints (GET, POST, DELETE)
   - SkillComments component on skill detail pages with create/delete functionality
-- 2026-02-05: Rebranded from SkillBook to ClawSkillHub
-  - Updated package names, CLI commands, and all references
-  - Changed domain from skillbook.replit.app to clawskillhub.com
-  - CLI renamed from skillbook/sb to clawskillhub/csh
 - 2026-02-05: Comprehensive QA and bug fixes
   - Fixed nested link issue in SettingsLayout (invalid DOM nesting)
   - Fixed Profile page to use correct /api/my-stars endpoint
@@ -195,7 +196,7 @@ Short alias `csh` available: `csh install owner/skill`
   - UI: SkillBadges, DependencyGraph, ActivityFeed, ValidationScore components
   - API: Extended skill detail endpoint with validation data and new fields
 - 2026-02-05: CLI tool and API tokens with scope enforcement
-  - CLI: clawskillhub/csh CLI with auth, publish, install, search, validate commands
+  - CLI: shsc CLI with auth, publish, install, search, validate commands
   - API: Token-based authentication with scope enforcement (read/write)
   - Settings: API token management UI (create, list, revoke)
   - UI: User dropdown menu with Settings, API Tokens, Profile links
@@ -205,10 +206,10 @@ Short alias `csh` available: `csh install owner/skill`
   - Frontend: Skeleton loading animations for better UX
   - Backend: Input validation for skill creation (name, slug format, description length)
   - Backend: Input validation for profile updates (handle format, bio length)
-- 2026-02-05: Imported 90 skills under "clawskillhub" official account
+- 2026-02-05: Imported 1000+ skills under "skillhub" official account
   - Created import script for batch skill importing with duplicate detection
   - Update script downloads real SKILL.md content from source
-  - System user: clawskillhub (official account for curated skills)
+  - System user: skillhub (official account for curated skills)
 - 2026-02-05: Multi-file skill support with file browser and ZIP downloads
   - Database: skill_files table for storing multiple files per skill version
   - FileBrowser: GitHub-like tree view with file content viewer

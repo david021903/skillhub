@@ -12,9 +12,9 @@ interface ConfigSchema {
 }
 
 export const config = new Conf<ConfigSchema>({
-  projectName: "clawskillhub-cli",
+  projectName: "shsc",
   defaults: {
-    apiUrl: "https://clawskillhub.com",
+    apiUrl: "https://skillhub.space",
   },
 });
 

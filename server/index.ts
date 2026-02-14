@@ -67,7 +67,7 @@ async function initializeApp() {
   // Session setup with PostgreSQL store
   const PgSession = connectPgSimple(session);
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: process.env.PROD_DATABASE_URL || process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
   });
 

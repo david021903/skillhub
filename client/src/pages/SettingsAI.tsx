@@ -209,7 +209,7 @@ export default function SettingsAI() {
           </CardHeader>
           <CardContent className="prose prose-sm dark:prose-invert max-w-none">
             <p className="text-muted-foreground">
-              ClawSkillHub uses your OpenAI API key to power AI features. This "bring your own key" approach means:
+              SkillHub uses your OpenAI API key to power AI features. This "bring your own key" approach means:
             </p>
             <ul className="text-muted-foreground mt-4 space-y-2">
               <li>You control your AI usage and costs</li>

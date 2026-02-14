@@ -41,7 +41,7 @@ export default function SettingsAppearance() {
       <Card>
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
-          <CardDescription>Customize how ClawSkillHub looks on your device</CardDescription>
+          <CardDescription>Customize how SkillHub looks on your device</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">

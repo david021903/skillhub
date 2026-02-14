@@ -1,7 +1,7 @@
 modules = ["nodejs-20", "postgresql-16"]
 [nix]
 channel = "stable-25_05"
-packages = ["unzip"]
+packages = ["unzip", "glib", "nss", "nspr", "atk", "cups", "libdrm", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXrandr", "mesa", "expat", "xorg.libxcb", "pango", "cairo", "alsa-lib", "libgbm", "libxkbcommon", "xorg.libX11", "xorg.libXext", "xorg.libXfixes", "gtk3"]
 
 [agent]
 expertMode = true

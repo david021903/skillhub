@@ -1,11 +1,10 @@
 {
-  "name": "clawskillhub-cli",
-  "version": "1.0.3",
-  "description": "ClawSkillHub CLI - Manage OpenClaw skills from the command line",
+  "name": "shsc",
+  "version": "1.0.0",
+  "description": "SkillHub CLI - Manage OpenClaw skills from the command line",
   "main": "dist/index.js",
   "bin": {
-    "clawskillhub": "./dist/index.js",
-    "csh": "./dist/index.js"
+    "shsc": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",

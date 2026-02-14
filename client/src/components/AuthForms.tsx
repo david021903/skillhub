@@ -53,7 +53,7 @@ export function AuthForms({ defaultTab = "login", onSuccess }: AuthFormsProps) {
         firstName: registerForm.firstName,
         lastName: registerForm.lastName,
       });
-      toast({ title: "Welcome to ClawSkillHub!" });
+      toast({ title: "Welcome to SkillHub!" });
       onSuccess?.();
     } catch (error: any) {
       toast({ title: "Registration failed", description: error.message, variant: "destructive" });

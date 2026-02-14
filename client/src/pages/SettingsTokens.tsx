@@ -88,7 +88,7 @@ export default function SettingsTokens() {
             API Tokens
           </CardTitle>
           <CardDescription>
-            Create tokens to authenticate with the ClawSkillHub CLI
+            Create tokens to authenticate with the SkillHub CLI
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -97,8 +97,8 @@ export default function SettingsTokens() {
               <Terminal className="h-4 w-4" />
               CLI Installation
             </div>
-            <code className="text-sm block">npm install -g clawskillhub-cli</code>
-            <code className="text-sm block text-muted-foreground">csh auth login --token YOUR_TOKEN</code>
+            <code className="text-sm block">npm install -g shsc</code>
+            <code className="text-sm block text-muted-foreground">shsc auth login --token YOUR_TOKEN</code>
           </div>
 
           {newToken && (

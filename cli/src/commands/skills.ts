@@ -145,23 +145,23 @@ List any requirements or dependencies.
       fs.writeFileSync(skillMdPath, template);
       console.log(chalk.green("Created SKILL.md"));
       console.log(chalk.gray("\nEdit the file, then run:"));
-      console.log(chalk.cyan(`  csh publish`));
+      console.log(chalk.cyan(`  shsc publish`));
     });
 
   program
     .command("publish")
-    .description("Publish the current skill to ClawSkillHub")
+    .description("Publish the current skill to SkillHub")
     .option("-v, --version <version>", "Version to publish")
     .option("-m, --message <message>", "Changelog message")
     .action(async (options) => {
       if (!getToken()) {
-        console.log(chalk.red("Not logged in. Run `csh auth login` first."));
+        console.log(chalk.red("Not logged in. Run `shsc auth login` first."));
         process.exit(1);
       }
 
       const user = getUser();
       if (!user) {
-        console.log(chalk.red("User info not found. Run `csh auth login` first."));
+        console.log(chalk.red("User info not found. Run `shsc auth login` first."));
         process.exit(1);
       }
 
@@ -169,7 +169,7 @@ List any requirements or dependencies.
       
       if (!fs.existsSync(skillMdPath)) {
         console.log(chalk.red("SKILL.md not found in current directory"));
-        console.log(chalk.gray("Run `csh init` to create one"));
+        console.log(chalk.gray("Run `shsc init` to create one"));
         process.exit(1);
       }
 
@@ -240,7 +240,7 @@ List any requirements or dependencies.
         }
       }
 
-      console.log(chalk.gray(`\n  Install with: csh install ${data!.skill.owner}/${data!.skill.slug}`));
+      console.log(chalk.gray(`\n  Install with: shsc install ${data!.skill.owner}/${data!.skill.slug}`));
     });
 
   program
@@ -351,7 +351,7 @@ List any requirements or dependencies.
         console.log(`  ${chalk.bold("Tags:")} ${data.tags.join(", ")}`);
       }
       console.log();
-      console.log(chalk.gray(`Install: csh install ${owner}/${slug}`));
+      console.log(chalk.gray(`Install: shsc install ${owner}/${slug}`));
     });
 
   program
@@ -359,7 +359,7 @@ List any requirements or dependencies.
     .description("List your published skills")
     .action(async () => {
       if (!getToken()) {
-        console.log(chalk.red("Not logged in. Run `csh auth login` first."));
+        console.log(chalk.red("Not logged in. Run `shsc auth login` first."));
         process.exit(1);
       }
 
@@ -376,7 +376,7 @@ List any requirements or dependencies.
 
       if (!data?.length) {
         console.log(chalk.yellow("You haven't published any skills yet."));
-        console.log(chalk.gray("Run `csh init` to create your first skill."));
+        console.log(chalk.gray("Run `shsc init` to create your first skill."));
         return;
       }
 
@@ -394,7 +394,7 @@ List any requirements or dependencies.
     .description("Star a skill")
     .action(async (skill) => {
       if (!getToken()) {
-        console.log(chalk.red("Not logged in. Run `csh auth login` first."));
+        console.log(chalk.red("Not logged in. Run `shsc auth login` first."));
         process.exit(1);
       }
 

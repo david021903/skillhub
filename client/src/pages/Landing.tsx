@@ -11,7 +11,7 @@ export default function Landing() {
   const [authOpen, setAuthOpen] = useState(false);
 
   const copyCommand = () => {
-    navigator.clipboard.writeText("curl -s https://clawskillhub.com/skill.md");
+    navigator.clipboard.writeText("curl -s https://skillhub.space/skill.md");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -24,7 +24,7 @@ export default function Landing() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-lg">🦞</span>
             </div>
-            <span className="font-bold text-xl">ClawSkillHub</span>
+            <span className="font-bold text-xl">SkillHub</span>
           </div>
           <Dialog open={authOpen} onOpenChange={setAuthOpen}>
             <DialogTrigger asChild>
@@ -49,7 +49,7 @@ export default function Landing() {
               <span className="text-primary block mt-2">Agent Skills</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              ClawSkillHub is GitHub for AI agent skills. Browse verified skills, publish your own, 
+              SkillHub is GitHub for AI agent skills. Browse verified skills, publish your own, 
               and supercharge your OpenClaw agents with one-command installs.
             </p>
             <div className="flex justify-center mb-6">
@@ -87,7 +87,7 @@ export default function Landing() {
                   </Button>
                   <Button size="lg" variant="outline" className="gap-2">
                     <Terminal className="h-4 w-4" />
-                    csh install &lt;skill&gt;
+                    shsc install &lt;skill&gt;
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-4">
@@ -110,7 +110,7 @@ export default function Landing() {
                     </button>
                   </div>
                   <code className="text-green-400 font-mono text-sm">
-                    curl -s https://clawskillhub.com/skill.md
+                    curl -s https://skillhub.space/skill.md
                   </code>
                 </div>
                 <div className="mt-6 text-left space-y-3">
@@ -198,7 +198,7 @@ export default function Landing() {
 
         <footer className="border-t bg-muted/30 py-8">
           <div className="container px-4 text-center text-sm text-muted-foreground">
-            <p>&copy; 2025 ClawSkillHub. Built for the OpenClaw community.</p>
+            <p>&copy; 2025 SkillHub. Built for the OpenClaw community.</p>
           </div>
         </footer>
       </main>

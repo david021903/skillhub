@@ -1,14 +1,53 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Package, GitBranch, Shield, Terminal, Star, Users, Zap, Bot, User, Copy, Check } from "lucide-react";
+import { Package, GitBranch, Shield, Terminal, Star, Zap, Bot, User, Copy, Check, Flame } from "lucide-react";
 import { AuthForms } from "@/components/AuthForms";
+import SkillCard from "@/components/SkillCard";
 
 export default function Landing() {
   const [viewMode, setViewMode] = useState<"human" | "agent">("human");
   const [copied, setCopied] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+
+  const { data: stats } = useQuery({
+    queryKey: ["/api/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/stats");
+      if (!res.ok) return { skills: 0, versions: 0, downloads: 0 };
+      return res.json();
+    },
+  });
+
+  const { data: trendingSkills = [], isLoading: trendingLoading } = useQuery({
+    queryKey: ["/api/skills/trending"],
+    queryFn: async () => {
+      const res = await fetch("/api/skills/trending?limit=6");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: latestSkills = [], isLoading: latestLoading } = useQuery({
+    queryKey: ["/api/skills", "latest"],
+    queryFn: async () => {
+      const res = await fetch("/api/skills?sort=latest&limit=6");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: popularSkills = [], isLoading: popularLoading } = useQuery({
+    queryKey: ["/api/skills", "popular"],
+    queryFn: async () => {
+      const res = await fetch("/api/skills?sort=stars&limit=6");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   const copyCommand = () => {
     navigator.clipboard.writeText("curl -s https://skillhub.space/skill.md");
@@ -87,7 +126,7 @@ export default function Landing() {
                   </Button>
                   <Button size="lg" variant="outline" className="gap-2">
                     <Terminal className="h-4 w-4" />
-                    shsc install &lt;skill&gt;
+                    npm install -g shsc
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-4">
@@ -175,24 +214,115 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="container px-4 py-20 text-center">
-          <h2 className="text-3xl font-bold mb-4">Join the Community</h2>
-          <p className="text-muted-foreground mb-8">
-            Start sharing your skills with developers worldwide.
-          </p>
+        <section className="container px-4 py-12 text-center">
           <div className="flex justify-center gap-12">
             <div className="text-center">
-              <div className="text-4xl font-bold text-primary">100+</div>
+              <div className="text-4xl font-bold text-primary">{stats?.skills || "1000"}+</div>
               <div className="text-sm text-muted-foreground">Skills Published</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-primary">500+</div>
-              <div className="text-sm text-muted-foreground">Developers</div>
+              <div className="text-4xl font-bold text-primary">{stats?.versions || "1000"}+</div>
+              <div className="text-sm text-muted-foreground">Versions</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-primary">1K+</div>
+              <div className="text-4xl font-bold text-primary">{stats?.downloads ? `${Math.floor(stats.downloads / 1000)}K` : "1K"}+</div>
               <div className="text-sm text-muted-foreground">Downloads</div>
             </div>
+          </div>
+        </section>
+
+        {/* Skills Gallery */}
+        <section className="container px-4 py-12">
+          {trendingSkills.length > 0 && (
+            <div className="mb-12">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Flame className="h-6 w-6 text-orange-500" />
+                  Trending This Week
+                </h2>
+                <Link href="/browse">
+                  <Button variant="ghost" size="sm">View All</Button>
+                </Link>
+              </div>
+              {trendingLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-4">
+                        <div className="h-6 bg-muted rounded mb-2 w-3/4"></div>
+                        <div className="h-4 bg-muted rounded mb-4 w-full"></div>
+                        <div className="h-4 bg-muted rounded w-1/2"></div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {trendingSkills.map((skill: any) => (
+                    <SkillCard key={skill.id} skill={skill} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Latest Skills</h2>
+              <Link href="/browse?sort=latest">
+                <Button variant="ghost" size="sm">View All</Button>
+              </Link>
+            </div>
+            {latestLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-4">
+                      <div className="h-6 bg-muted rounded mb-2 w-3/4"></div>
+                      <div className="h-4 bg-muted rounded mb-4 w-full"></div>
+                      <div className="h-4 bg-muted rounded w-1/2"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {latestSkills.map((skill: any) => (
+                  <SkillCard key={skill.id} skill={skill} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Star className="h-6 w-6 text-yellow-500" />
+                Popular Skills
+              </h2>
+              <Link href="/browse?sort=stars">
+                <Button variant="ghost" size="sm">View All</Button>
+              </Link>
+            </div>
+            {popularLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-4">
+                      <div className="h-6 bg-muted rounded mb-2 w-3/4"></div>
+                      <div className="h-4 bg-muted rounded mb-4 w-full"></div>
+                      <div className="h-4 bg-muted rounded w-1/2"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {popularSkills.map((skill: any) => (
+                  <SkillCard key={skill.id} skill={skill} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

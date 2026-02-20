@@ -11,6 +11,7 @@ import { SkillExplainer } from "@/components/SkillExplainer";
 import { SkillChat } from "@/components/SkillChat";
 import { SkillComments } from "@/components/SkillComments";
 import { SkillTabs } from "@/components/SkillTabs";
+import { CopyButton } from "@/components/CopyButton";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Star, Copy, ExternalLink, AlertCircle, RefreshCw, Github, GitFork } from "lucide-react";
@@ -207,9 +208,12 @@ export default function SkillDetail() {
           <CardTitle>Install</CardTitle>
         </CardHeader>
         <CardContent>
-          <code className="block bg-muted p-4 rounded-lg font-mono text-sm">
-            shsc install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
-          </code>
+          <div className="flex items-center justify-between bg-muted p-4 rounded-lg">
+            <code className="font-mono text-sm">
+              shsc install {params?.owner}/{params?.slug}@{latestVersion?.version || "latest"}
+            </code>
+            <CopyButton text={`shsc install ${params?.owner}/${params?.slug}@${latestVersion?.version || "latest"}`} />
+          </div>
         </CardContent>
       </Card>
 

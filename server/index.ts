@@ -150,7 +150,10 @@ async function initializeApp() {
   // Serve skill.md for agents
   app.get("/skill.md", (_req, res) => {
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
-    res.sendFile(path.join(__dirname, "../public/skill.md"));
+    const skillMdPath = process.env.NODE_ENV === "production"
+      ? path.join(__dirname, "../public/skill.md")
+      : path.join(process.cwd(), "public/skill.md");
+    res.sendFile(skillMdPath);
   });
 
   if (process.env.NODE_ENV === "production") {

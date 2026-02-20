@@ -78,7 +78,7 @@ async function logActivity(skillId: string, userId: string | null, action: strin
 export function registerRoutes(app: Express) {
   app.get("/api/skills", async (req: Request, res: Response) => {
     try {
-      const { search, tag, verified, sort = "latest", limit = "20", offset = "0" } = req.query;
+      const { search, tag, verified, sort = "latest", limit = "20", offset = "0", paginated } = req.query;
       
       const conditions: any[] = [eq(skills.isPublic, true)];
       
@@ -124,7 +124,21 @@ export function registerRoutes(app: Express) {
       .limit(parseInt(limit as string))
       .offset(parseInt(offset as string));
 
-      res.json(result);
+      // Return paginated response with total count if requested
+      if (paginated === "true") {
+        const [countResult] = await db.select({ count: sql<number>`count(*)` })
+          .from(skills)
+          .where(and(...conditions));
+        
+        res.json({
+          skills: result,
+          total: Number(countResult.count),
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+        });
+      } else {
+        res.json(result);
+      }
     } catch (error) {
       console.error("Error fetching skills:", error);
       res.status(500).json({ message: "Failed to fetch skills" });
@@ -1221,11 +1235,13 @@ export function registerRoutes(app: Express) {
       const [skillCount] = await db.select({ count: sql<number>`count(*)` }).from(skills);
       const [userCount] = await db.select({ count: sql<number>`count(*)` }).from(users);
       const [versionCount] = await db.select({ count: sql<number>`count(*)` }).from(skillVersions);
+      const [downloadSum] = await db.select({ sum: sql<number>`coalesce(sum(downloads), 0)` }).from(skills);
       
       res.json({
         skills: Number(skillCount.count),
         users: Number(userCount.count),
         versions: Number(versionCount.count),
+        downloads: Number(downloadSum.sum),
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch stats" });

@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Code, MessageCircle, GitPullRequest, Download, GitFork, Clock, CheckCircle, XCircle, Plus, Pencil, X, Save, Trash2, ShieldCheck, AlertTriangle, FolderOpen } from "lucide-react";
 import { FileBrowser } from "./FileBrowser";
+import { CopyButton } from "./CopyButton";
 import { useLocation } from "wouter";
 
 interface SkillTabsProps {
@@ -484,9 +485,15 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
                   </Card>
                 </div>
               ) : (
-                <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm whitespace-pre-wrap font-mono">
-                  {displayedVersion.skillMd}
-                </pre>
+                <div className="relative">
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm whitespace-pre-wrap font-mono pr-12">
+                    {displayedVersion.skillMd}
+                  </pre>
+                  <CopyButton 
+                    text={displayedVersion.skillMd} 
+                    className="absolute top-2 right-2"
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

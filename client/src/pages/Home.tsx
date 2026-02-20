@@ -109,9 +109,9 @@ export default function Home() {
                 {statsLoading ? (
                   <div className="h-8 w-16 bg-muted rounded animate-pulse"></div>
                 ) : (
-                  <p className="text-2xl font-bold">{stats?.users || 0}</p>
+                  <p className="text-2xl font-bold">{stats?.downloads || 0}</p>
                 )}
-                <p className="text-sm text-muted-foreground">Developers</p>
+                <p className="text-sm text-muted-foreground">Total Downloads</p>
               </div>
             </div>
           </CardContent>

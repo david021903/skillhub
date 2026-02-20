@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch server/index.ts",
-    "build": "vite build && tsc -p tsconfig.server.json",
+    "build": "vite build && tsc -p tsconfig.server.json && cp public/skill.md dist/public/skill.md",
     "start": "NODE_ENV=production node dist/server/index.js",
     "db:push": "drizzle-kit push",
     "scrape:clawhub": "tsx scripts/scrape-clawhub.ts"

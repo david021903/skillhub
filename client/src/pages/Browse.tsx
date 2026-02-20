@@ -4,16 +4,24 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import SkillCard from "@/components/SkillCard";
-import { Search, Package, AlertCircle, RefreshCw } from "lucide-react";
+import { Search, Package, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 12;
 
 export default function Browse() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("latest");
+  const [page, setPage] = useState(1);
 
-  const { data: skills = [], isLoading, error, refetch } = useQuery({
-    queryKey: ["/api/skills", search, sort],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["/api/skills", search, sort, page],
     queryFn: async () => {
-      const params = new URLSearchParams({ sort, limit: "50" });
+      const params = new URLSearchParams({ 
+        sort, 
+        limit: String(ITEMS_PER_PAGE),
+        offset: String((page - 1) * ITEMS_PER_PAGE),
+        paginated: "true"
+      });
       if (search) params.set("search", search);
       const res = await fetch(`/api/skills?${params}`);
       if (!res.ok) {
@@ -23,12 +31,29 @@ export default function Browse() {
     },
   });
 
+  const skills = data?.skills || [];
+  const total = data?.total || 0;
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handleSort = (value: string) => {
+    setSort(value);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Browse Skills</h1>
-          <p className="text-muted-foreground">Discover skills for your OpenClaw agents</p>
+          <p className="text-muted-foreground">
+            Discover skills for your OpenClaw agents
+            {total > 0 && ` (${total} skills)`}
+          </p>
         </div>
       </div>
 
@@ -38,7 +63,7 @@ export default function Browse() {
           <Input
             placeholder="Search skills..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -46,21 +71,21 @@ export default function Browse() {
           <Button
             variant={sort === "latest" ? "default" : "outline"}
             size="sm"
-            onClick={() => setSort("latest")}
+            onClick={() => handleSort("latest")}
           >
             Latest
           </Button>
           <Button
             variant={sort === "stars" ? "default" : "outline"}
             size="sm"
-            onClick={() => setSort("stars")}
+            onClick={() => handleSort("stars")}
           >
             Popular
           </Button>
           <Button
             variant={sort === "downloads" ? "default" : "outline"}
             size="sm"
-            onClick={() => setSort("downloads")}
+            onClick={() => handleSort("downloads")}
           >
             Most Downloaded
           </Button>
@@ -94,11 +119,64 @@ export default function Browse() {
           ))}
         </div>
       ) : skills.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {skills.map((skill: any) => (
-            <SkillCard key={skill.id} skill={skill} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {skills.map((skill: any) => (
+              <SkillCard key={skill.id} skill={skill} />
+            ))}
+          </div>
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 7) {
+                    pageNum = i + 1;
+                  } else if (page <= 4) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 3) {
+                    pageNum = totalPages - 6 + i;
+                  } else {
+                    pageNum = page - 3 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={page === pageNum ? "default" : "outline"}
+                      size="sm"
+                      className="w-10"
+                      onClick={() => setPage(pageNum)}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <Card>
           <CardContent className="py-20 text-center">

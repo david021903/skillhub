@@ -59,11 +59,11 @@ export default function Landing() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       <nav className="fixed top-0 w-full z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-lg">🦞</span>
-            </div>
-            <span className="font-bold text-xl">SkillHub</span>
+          <div className="flex items-center gap-6">
+            <img src="/logo-dark.png" alt="SkillHub" className="h-8 dark:invert" />
+            <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Browse Skills
+            </Link>
           </div>
           <Dialog open={authOpen} onOpenChange={setAuthOpen}>
             <DialogTrigger asChild>

@@ -220,4 +220,36 @@ shsc validate                # Validate SKILL.md before publishing
   - .skillignore: Pattern-based file exclusion for CLI publish
   - Security: Path traversal protection on file upload and install
   - UI components: FileBrowser, FileUploader integrated in SkillTabs and CreateSkill
+- 2026-02-05: Added "Browse Skills" navigation link to landing page and header
+  - Landing page: Browse Skills text link next to logo in nav bar
+  - Header: Browse Skills text label on search button (text on desktop, icon-only on mobile)
 - 2025-02-05: Initial project setup with full CRUD for skills, versioning, validation, and user profiles
+
+## Admin CRM Dashboard (Implemented: Phase 1 & 2)
+A private admin dashboard for monitoring and moderating platform activity.
+
+### Phase 1 — Activity Feed Dashboard (Done)
+- Protected `/admin` route (admin-only access, server + client guard)
+- Real-time activity feed: new comments, skills, users, stars, issues, PRs
+- Direct links to relevant skill/user/comment for quick action
+- Filters by event type (comments, new skills, signups, etc.)
+- Summary stats: today's signups, new skills this week, active users, comments
+- Auto-refresh every 30 seconds
+
+### Phase 2 — Moderation Tools (Done)
+- Delete/hide comments directly from dashboard (single + bulk)
+- Flag/remove skills: archive, make private/public, delete
+- Quick user overview dialog: see user's skills, comments, stats at a glance
+- Bulk actions: checkbox select + bulk delete for comments
+- Delete issue comments and PR comments from admin API
+- Admin link in user dropdown (only shown to admin users)
+
+### Phase 3 — Notifications & Alerts
+- Optional email or in-app notifications for new comments
+- Daily digest email summarizing platform activity
+- Alerts for unusual activity (spam patterns, rapid signups)
+
+### Phase 4 — Analytics (nice-to-have)
+- Growth trend charts (skills published, downloads, signups over time)
+- Most active users and most commented skills
+- Search query analytics (what people are looking for)

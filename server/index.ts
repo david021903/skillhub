@@ -77,14 +77,14 @@ async function initializeApp() {
       tableName: "sessions",
       createTableIfMissing: true,
     }),
+    proxy: true,
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: "strict", // Strict for better CSRF protection
+      sameSite: "lax",
     },
   }));
 
@@ -143,9 +143,11 @@ async function initializeApp() {
   app.use("/api/skills/generate", aiLimiter);
   app.use("/api/skills/chat", aiLimiter);
 
-  // Setup auth and routes
+  // Setup auth, routes, and admin routes
+  const { registerAdminRoutes } = await import("./admin-routes.js");
   setupAuthRoutes(app);
   registerRoutes(app);
+  registerAdminRoutes(app);
 
   // Serve skill.md for agents
   app.get("/skill.md", (_req, res) => {

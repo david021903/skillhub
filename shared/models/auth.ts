@@ -22,6 +22,7 @@ export const users = pgTable("users", {
   handle: varchar("handle").unique(),
   bio: varchar("bio"),
   openaiApiKey: text("openai_api_key"),
+  isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

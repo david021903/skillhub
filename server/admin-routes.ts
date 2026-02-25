@@ -1,5 +1,10 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { supabase } from "./db.js";
+import { db } from "./db.js";
+import {
+  skills, skillVersions, skillStars, skillActivities, skillComments,
+  skillIssues, issueComments, skillPullRequests, prComments, users, skillFiles
+} from "../shared/schema.js";
+import { eq, desc, and, sql, count, gte, inArray } from "drizzle-orm";
 import { isAuthenticated } from "./auth.js";
 
 async function isAdmin(req: Request, res: Response, next: NextFunction) {
@@ -7,12 +12,8 @@ async function isAdmin(req: Request, res: Response, next: NextFunction) {
   if (!userId) {
     return res.status(401).json({ message: "Authentication required" });
   }
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-  if (!user || !user.is_admin) {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user || !user.isAdmin) {
     return res.status(403).json({ message: "Admin access required" });
   }
   (req as any).adminUser = user;
@@ -27,51 +28,24 @@ export function registerAdminRoutes(app: Express) {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      const [
-        { count: totalUsersCount },
-        { count: todaySignupsCount },
-        { count: weekSkillsCount },
-        { count: totalSkillsCount },
-        { count: totalCommentsCount },
-        { count: totalIssuesCount },
-        { count: totalPRsCount },
-        { count: todayCommentsCount },
-        { data: totalDownloadsVal },
-        { count: todayInstallsCount },
-        { count: weekInstallsCount },
-      ] = await Promise.all([
-        supabase.from('users').select('*', { count: 'exact', head: true }),
-        supabase.from('users').select('*', { count: 'exact', head: true })
-          .gte('created_at', todayStart.toISOString()),
-        supabase.from('skills').select('*', { count: 'exact', head: true })
-          .gte('created_at', weekAgo.toISOString()),
-        supabase.from('skills').select('*', { count: 'exact', head: true }),
-        supabase.from('skill_comments').select('*', { count: 'exact', head: true }),
-        supabase.from('skill_issues').select('*', { count: 'exact', head: true }),
-        supabase.from('skill_pull_requests').select('*', { count: 'exact', head: true }),
-        supabase.from('skill_comments').select('*', { count: 'exact', head: true })
-          .gte('created_at', todayStart.toISOString()),
-        supabase.rpc('total_skill_downloads'),
-        supabase.from('skill_activities').select('*', { count: 'exact', head: true })
-          .gte('created_at', todayStart.toISOString())
-          .or('action.eq.install,action.eq.download'),
-        supabase.from('skill_activities').select('*', { count: 'exact', head: true })
-          .gte('created_at', weekAgo.toISOString())
-          .or('action.eq.install,action.eq.download'),
-      ]);
+      const [totalUsers] = await db.select({ count: count() }).from(users);
+      const [todaySignups] = await db.select({ count: count() }).from(users).where(gte(users.createdAt, todayStart));
+      const [weekSkills] = await db.select({ count: count() }).from(skills).where(gte(skills.createdAt, weekAgo));
+      const [totalSkills] = await db.select({ count: count() }).from(skills);
+      const [totalComments] = await db.select({ count: count() }).from(skillComments);
+      const [totalIssues] = await db.select({ count: count() }).from(skillIssues);
+      const [totalPRs] = await db.select({ count: count() }).from(skillPullRequests);
+      const [todayComments] = await db.select({ count: count() }).from(skillComments).where(gte(skillComments.createdAt, todayStart));
 
       res.json({
-        totalUsers: totalUsersCount ?? 0,
-        todaySignups: todaySignupsCount ?? 0,
-        totalSkills: totalSkillsCount ?? 0,
-        newSkillsThisWeek: weekSkillsCount ?? 0,
-        totalComments: totalCommentsCount ?? 0,
-        todayComments: todayCommentsCount ?? 0,
-        totalIssues: totalIssuesCount ?? 0,
-        totalPRs: totalPRsCount ?? 0,
-        totalDownloads: Number(totalDownloadsVal ?? 0),
-        todayInstalls: todayInstallsCount ?? 0,
-        weekInstalls: weekInstallsCount ?? 0,
+        totalUsers: totalUsers.count,
+        todaySignups: todaySignups.count,
+        totalSkills: totalSkills.count,
+        newSkillsThisWeek: weekSkills.count,
+        totalComments: totalComments.count,
+        todayComments: todayComments.count,
+        totalIssues: totalIssues.count,
+        totalPRs: totalPRs.count,
       });
     } catch (error) {
       console.error("Admin stats error:", error);
@@ -90,62 +64,90 @@ export function registerAdminRoutes(app: Express) {
       const shouldInclude = (t: string) => !type || type === "all" || type === t;
 
       if (shouldInclude("comments")) {
-        const { data: comments } = await supabase
-          .from('skill_comments')
-          .select('id, content, created_at, user_id, skill_id, user:users!user_id(handle, email), skill:skills!skill_id(name, slug, owner:users!owner_id(handle))')
-          .order('created_at', { ascending: false })
-          .limit(limitNum);
+        const comments = await db.select({
+          id: skillComments.id,
+          content: skillComments.content,
+          createdAt: skillComments.createdAt,
+          userId: skillComments.userId,
+          skillId: skillComments.skillId,
+          userName: users.handle,
+          userEmail: users.email,
+          skillName: skills.name,
+          skillSlug: skills.slug,
+          ownerHandle: sql<string>`(SELECT handle FROM users WHERE id = ${skills.ownerId})`,
+        })
+        .from(skillComments)
+        .leftJoin(users, eq(skillComments.userId, users.id))
+        .leftJoin(skills, eq(skillComments.skillId, skills.id))
+        .orderBy(desc(skillComments.createdAt))
+        .limit(limitNum);
 
-        events.push(...(comments || []).map((c: any) => ({
+        events.push(...comments.map(c => ({
           type: "comment",
           id: c.id,
           content: c.content,
-          createdAt: c.created_at,
-          userId: c.user_id,
-          userName: c.user?.handle || c.user?.email?.split("@")[0],
-          skillId: c.skill_id,
-          skillName: c.skill?.name,
-          skillSlug: c.skill?.slug,
-          ownerHandle: c.skill?.owner?.handle,
-          link: `/skills/${c.skill?.owner?.handle}/${c.skill?.slug}`,
+          createdAt: c.createdAt,
+          userId: c.userId,
+          userName: c.userName || c.userEmail?.split("@")[0],
+          skillId: c.skillId,
+          skillName: c.skillName,
+          skillSlug: c.skillSlug,
+          ownerHandle: c.ownerHandle,
+          link: `/skills/${c.ownerHandle}/${c.skillSlug}`,
         })));
       }
 
       if (shouldInclude("skills")) {
-        const { data: newSkills } = await supabase
-          .from('skills')
-          .select('id, name, slug, description, is_public, created_at, owner_id, owner:users!owner_id(handle, email)')
-          .order('created_at', { ascending: false })
-          .limit(limitNum);
+        const newSkills = await db.select({
+          id: skills.id,
+          name: skills.name,
+          slug: skills.slug,
+          description: skills.description,
+          isPublic: skills.isPublic,
+          createdAt: skills.createdAt,
+          ownerId: skills.ownerId,
+          ownerHandle: users.handle,
+          ownerEmail: users.email,
+        })
+        .from(skills)
+        .leftJoin(users, eq(skills.ownerId, users.id))
+        .orderBy(desc(skills.createdAt))
+        .limit(limitNum);
 
-        events.push(...(newSkills || []).map((s: any) => ({
+        events.push(...newSkills.map(s => ({
           type: "skill",
           id: s.id,
           content: s.description || s.name,
-          createdAt: s.created_at,
-          userId: s.owner_id,
-          userName: s.owner?.handle || s.owner?.email?.split("@")[0],
+          createdAt: s.createdAt,
+          userId: s.ownerId,
+          userName: s.ownerHandle || s.ownerEmail?.split("@")[0],
           skillId: s.id,
           skillName: s.name,
           skillSlug: s.slug,
-          ownerHandle: s.owner?.handle,
-          isPublic: s.is_public,
-          link: `/skills/${s.owner?.handle}/${s.slug}`,
+          ownerHandle: s.ownerHandle,
+          isPublic: s.isPublic,
+          link: `/skills/${s.ownerHandle}/${s.slug}`,
         })));
       }
 
       if (shouldInclude("users")) {
-        const { data: newUsers } = await supabase
-          .from('users')
-          .select('id, handle, email, first_name, last_name, created_at')
-          .order('created_at', { ascending: false })
-          .limit(limitNum);
+        const newUsers = await db.select({
+          id: users.id,
+          handle: users.handle,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .orderBy(desc(users.createdAt))
+        .limit(limitNum);
 
-        events.push(...(newUsers || []).map((u: any) => ({
+        events.push(...newUsers.map(u => ({
           type: "user",
           id: u.id,
-          content: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email,
-          createdAt: u.created_at,
+          content: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
+          createdAt: u.createdAt,
           userId: u.id,
           userName: u.handle || u.email?.split("@")[0],
           link: `/users/${u.handle || u.id}`,
@@ -153,95 +155,110 @@ export function registerAdminRoutes(app: Express) {
       }
 
       if (shouldInclude("stars")) {
-        const { data: stars } = await supabase
-          .from('skill_stars')
-          .select('skill_id, user_id, created_at, user:users!user_id(handle, email), skill:skills!skill_id(name, slug, owner:users!owner_id(handle))')
-          .order('created_at', { ascending: false })
-          .limit(limitNum);
+        const stars = await db.select({
+          skillId: skillStars.skillId,
+          userId: skillStars.userId,
+          createdAt: skillStars.createdAt,
+          userName: users.handle,
+          userEmail: users.email,
+          skillName: skills.name,
+          skillSlug: skills.slug,
+          ownerHandle: sql<string>`(SELECT handle FROM users WHERE id = ${skills.ownerId})`,
+        })
+        .from(skillStars)
+        .leftJoin(users, eq(skillStars.userId, users.id))
+        .leftJoin(skills, eq(skillStars.skillId, skills.id))
+        .orderBy(desc(skillStars.createdAt))
+        .limit(limitNum);
 
-        events.push(...(stars || []).map((s: any) => ({
+        events.push(...stars.map(s => ({
           type: "star",
-          id: `${s.skill_id}-${s.user_id}`,
-          content: `Starred ${s.skill?.name}`,
-          createdAt: s.created_at,
-          userId: s.user_id,
-          userName: s.user?.handle || s.user?.email?.split("@")[0],
-          skillId: s.skill_id,
-          skillName: s.skill?.name,
-          skillSlug: s.skill?.slug,
-          ownerHandle: s.skill?.owner?.handle,
-          link: `/skills/${s.skill?.owner?.handle}/${s.skill?.slug}`,
+          id: `${s.skillId}-${s.userId}`,
+          content: `Starred ${s.skillName}`,
+          createdAt: s.createdAt,
+          userId: s.userId,
+          userName: s.userName || s.userEmail?.split("@")[0],
+          skillId: s.skillId,
+          skillName: s.skillName,
+          skillSlug: s.skillSlug,
+          ownerHandle: s.ownerHandle,
+          link: `/skills/${s.ownerHandle}/${s.skillSlug}`,
         })));
       }
 
       if (shouldInclude("issues")) {
-        const { data: issues } = await supabase
-          .from('skill_issues')
-          .select('id, title, state, number, created_at, author_id, skill_id, user:users!author_id(handle, email), skill:skills!skill_id(name, slug, owner:users!owner_id(handle))')
-          .order('created_at', { ascending: false })
-          .limit(limitNum);
+        const issues = await db.select({
+          id: skillIssues.id,
+          title: skillIssues.title,
+          state: skillIssues.state,
+          number: skillIssues.number,
+          createdAt: skillIssues.createdAt,
+          authorId: skillIssues.authorId,
+          skillId: skillIssues.skillId,
+          userName: users.handle,
+          userEmail: users.email,
+          skillName: skills.name,
+          skillSlug: skills.slug,
+          ownerHandle: sql<string>`(SELECT handle FROM users WHERE id = ${skills.ownerId})`,
+        })
+        .from(skillIssues)
+        .leftJoin(users, eq(skillIssues.authorId, users.id))
+        .leftJoin(skills, eq(skillIssues.skillId, skills.id))
+        .orderBy(desc(skillIssues.createdAt))
+        .limit(limitNum);
 
-        events.push(...(issues || []).map((i: any) => ({
+        events.push(...issues.map(i => ({
           type: "issue",
           id: i.id,
           content: i.title,
-          createdAt: i.created_at,
-          userId: i.author_id,
-          userName: i.user?.handle || i.user?.email?.split("@")[0],
-          skillId: i.skill_id,
-          skillName: i.skill?.name,
-          skillSlug: i.skill?.slug,
-          ownerHandle: i.skill?.owner?.handle,
+          createdAt: i.createdAt,
+          userId: i.authorId,
+          userName: i.userName || i.userEmail?.split("@")[0],
+          skillId: i.skillId,
+          skillName: i.skillName,
+          skillSlug: i.skillSlug,
+          ownerHandle: i.ownerHandle,
           state: i.state,
           number: i.number,
-          link: `/skills/${i.skill?.owner?.handle}/${i.skill?.slug}`,
-        })));
-      }
-
-      if (shouldInclude("installs")) {
-        const { data: installs } = await supabase
-          .from('skill_activities')
-          .select('id, action, details, created_at, user_id, skill_id, user:users!user_id(handle, email), skill:skills!skill_id(name, slug, owner:users!owner_id(handle))')
-          .or('action.eq.install,action.eq.download')
-          .order('created_at', { ascending: false })
-          .limit(limitNum);
-
-        events.push(...(installs || []).map((i: any) => ({
-          type: "install",
-          id: i.id,
-          content: `${i.action === "install" ? "Installed" : "Downloaded"} ${i.skill?.name || "skill"}${i.details?.version ? ` v${i.details.version}` : ""}${i.details?.format ? ` (${i.details.format})` : ""}`,
-          createdAt: i.created_at,
-          userId: i.user_id,
-          userName: i.user?.handle || i.user?.email?.split("@")[0] || "Anonymous",
-          skillId: i.skill_id,
-          skillName: i.skill?.name,
-          skillSlug: i.skill?.slug,
-          ownerHandle: i.skill?.owner?.handle,
-          link: `/skills/${i.skill?.owner?.handle}/${i.skill?.slug}`,
+          link: `/skills/${i.ownerHandle}/${i.skillSlug}`,
         })));
       }
 
       if (shouldInclude("prs")) {
-        const { data: prs } = await supabase
-          .from('skill_pull_requests')
-          .select('id, title, state, number, created_at, author_id, skill_id, user:users!author_id(handle, email), skill:skills!skill_id(name, slug, owner:users!owner_id(handle))')
-          .order('created_at', { ascending: false })
-          .limit(limitNum);
+        const prs = await db.select({
+          id: skillPullRequests.id,
+          title: skillPullRequests.title,
+          state: skillPullRequests.state,
+          number: skillPullRequests.number,
+          createdAt: skillPullRequests.createdAt,
+          authorId: skillPullRequests.authorId,
+          skillId: skillPullRequests.skillId,
+          userName: users.handle,
+          userEmail: users.email,
+          skillName: skills.name,
+          skillSlug: skills.slug,
+          ownerHandle: sql<string>`(SELECT handle FROM users WHERE id = ${skills.ownerId})`,
+        })
+        .from(skillPullRequests)
+        .leftJoin(users, eq(skillPullRequests.authorId, users.id))
+        .leftJoin(skills, eq(skillPullRequests.skillId, skills.id))
+        .orderBy(desc(skillPullRequests.createdAt))
+        .limit(limitNum);
 
-        events.push(...(prs || []).map((p: any) => ({
+        events.push(...prs.map(p => ({
           type: "pr",
           id: p.id,
           content: p.title,
-          createdAt: p.created_at,
-          userId: p.author_id,
-          userName: p.user?.handle || p.user?.email?.split("@")[0],
-          skillId: p.skill_id,
-          skillName: p.skill?.name,
-          skillSlug: p.skill?.slug,
-          ownerHandle: p.skill?.owner?.handle,
+          createdAt: p.createdAt,
+          userId: p.authorId,
+          userName: p.userName || p.userEmail?.split("@")[0],
+          skillId: p.skillId,
+          skillName: p.skillName,
+          skillSlug: p.skillSlug,
+          ownerHandle: p.ownerHandle,
           state: p.state,
           number: p.number,
-          link: `/skills/${p.skill?.owner?.handle}/${p.skill?.slug}`,
+          link: `/skills/${p.ownerHandle}/${p.skillSlug}`,
         })));
       }
 
@@ -256,76 +273,48 @@ export function registerAdminRoutes(app: Express) {
 
   app.get("/api/admin/users/:userId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const userId = String(req.params.userId);
-      const { data: user } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      const { userId } = req.params;
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      const { data: userSkills } = await supabase
-        .from('skills')
-        .select('id, name, slug, is_public, stars, downloads, created_at')
-        .eq('owner_id', userId)
-        .order('created_at', { ascending: false });
+      const userSkills = await db.select({
+        id: skills.id, name: skills.name, slug: skills.slug, isPublic: skills.isPublic,
+        stars: skills.stars, downloads: skills.downloads, createdAt: skills.createdAt,
+      }).from(skills).where(eq(skills.ownerId, userId)).orderBy(desc(skills.createdAt));
 
-      const { data: userComments } = await supabase
-        .from('skill_comments')
-        .select('id, content, created_at, skill_id, skill:skills!skill_id(name, slug, owner:users!owner_id(handle))')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const userComments = await db.select({
+        id: skillComments.id, content: skillComments.content, createdAt: skillComments.createdAt,
+        skillId: skillComments.skillId, skillName: skills.name, skillSlug: skills.slug,
+        ownerHandle: sql<string>`(SELECT handle FROM users WHERE id = ${skills.ownerId})`,
+      })
+      .from(skillComments)
+      .leftJoin(skills, eq(skillComments.skillId, skills.id))
+      .where(eq(skillComments.userId, userId))
+      .orderBy(desc(skillComments.createdAt))
+      .limit(50);
 
-      const { count: starCount } = await supabase
-        .from('skill_stars')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-
-      const { count: issueCount } = await supabase
-        .from('skill_issues')
-        .select('*', { count: 'exact', head: true })
-        .eq('author_id', userId);
-
-      const skills = (userSkills || []).map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        slug: s.slug,
-        isPublic: s.is_public,
-        stars: s.stars,
-        downloads: s.downloads,
-        createdAt: s.created_at,
-      }));
-
-      const comments = (userComments || []).map((c: any) => ({
-        id: c.id,
-        content: c.content,
-        createdAt: c.created_at,
-        skillId: c.skill_id,
-        skillName: c.skill?.name,
-        skillSlug: c.skill?.slug,
-        ownerHandle: c.skill?.owner?.handle,
-      }));
+      const [starCount] = await db.select({ count: count() }).from(skillStars).where(eq(skillStars.userId, userId));
+      const [issueCount] = await db.select({ count: count() }).from(skillIssues).where(eq(skillIssues.authorId, userId));
 
       res.json({
         user: {
           id: user.id,
           email: user.email,
           handle: user.handle,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          profileImageUrl: user.profile_image_url,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImageUrl: user.profileImageUrl,
           bio: user.bio,
-          isAdmin: user.is_admin,
-          createdAt: user.created_at,
+          isAdmin: user.isAdmin,
+          createdAt: user.createdAt,
         },
-        skills,
-        comments,
+        skills: userSkills,
+        comments: userComments,
         stats: {
-          totalSkills: skills.length,
-          totalStars: starCount ?? 0,
-          totalIssues: issueCount ?? 0,
-          totalComments: comments.length,
+          totalSkills: userSkills.length,
+          totalStars: starCount.count,
+          totalIssues: issueCount.count,
+          totalComments: userComments.length,
         },
       });
     } catch (error) {
@@ -336,8 +325,8 @@ export function registerAdminRoutes(app: Express) {
 
   app.delete("/api/admin/comments/:commentId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const commentId = String(req.params.commentId);
-      await supabase.from('skill_comments').delete().eq('id', commentId);
+      const { commentId } = req.params;
+      await db.delete(skillComments).where(eq(skillComments.id, commentId));
       res.json({ message: "Comment deleted" });
     } catch (error) {
       console.error("Admin delete comment error:", error);
@@ -351,7 +340,7 @@ export function registerAdminRoutes(app: Express) {
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ message: "Comment IDs required" });
       }
-      await supabase.from('skill_comments').delete().in('id', ids);
+      await db.delete(skillComments).where(inArray(skillComments.id, ids));
       res.json({ message: `${ids.length} comments deleted` });
     } catch (error) {
       console.error("Admin bulk delete error:", error);
@@ -361,24 +350,23 @@ export function registerAdminRoutes(app: Express) {
 
   app.post("/api/admin/skills/:skillId/flag", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const skillId = String(req.params.skillId);
+      const { skillId } = req.params;
       const { action } = req.body;
-      const updatedAt = new Date().toISOString();
 
       if (action === "archive") {
-        await supabase.from('skills').update({ is_archived: true, updated_at: updatedAt }).eq('id', skillId);
+        await db.update(skills).set({ isArchived: true, updatedAt: new Date() }).where(eq(skills.id, skillId));
         res.json({ message: "Skill archived" });
       } else if (action === "unarchive") {
-        await supabase.from('skills').update({ is_archived: false, updated_at: updatedAt }).eq('id', skillId);
+        await db.update(skills).set({ isArchived: false, updatedAt: new Date() }).where(eq(skills.id, skillId));
         res.json({ message: "Skill unarchived" });
       } else if (action === "make_private") {
-        await supabase.from('skills').update({ is_public: false, updated_at: updatedAt }).eq('id', skillId);
+        await db.update(skills).set({ isPublic: false, updatedAt: new Date() }).where(eq(skills.id, skillId));
         res.json({ message: "Skill set to private" });
       } else if (action === "make_public") {
-        await supabase.from('skills').update({ is_public: true, updated_at: updatedAt }).eq('id', skillId);
+        await db.update(skills).set({ isPublic: true, updatedAt: new Date() }).where(eq(skills.id, skillId));
         res.json({ message: "Skill set to public" });
       } else if (action === "delete") {
-        await supabase.from('skills').delete().eq('id', skillId);
+        await db.delete(skills).where(eq(skills.id, skillId));
         res.json({ message: "Skill deleted" });
       } else {
         res.status(400).json({ message: "Invalid action. Use: archive, unarchive, make_private, make_public, delete" });
@@ -391,8 +379,8 @@ export function registerAdminRoutes(app: Express) {
 
   app.delete("/api/admin/issue-comments/:commentId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const commentId = String(req.params.commentId);
-      await supabase.from('issue_comments').delete().eq('id', commentId);
+      const { commentId } = req.params;
+      await db.delete(issueComments).where(eq(issueComments.id, commentId));
       res.json({ message: "Issue comment deleted" });
     } catch (error) {
       console.error("Admin delete issue comment error:", error);
@@ -402,8 +390,8 @@ export function registerAdminRoutes(app: Express) {
 
   app.delete("/api/admin/pr-comments/:commentId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const commentId = String(req.params.commentId);
-      await supabase.from('pr_comments').delete().eq('id', commentId);
+      const { commentId } = req.params;
+      await db.delete(prComments).where(eq(prComments.id, commentId));
       res.json({ message: "PR comment deleted" });
     } catch (error) {
       console.error("Admin delete PR comment error:", error);

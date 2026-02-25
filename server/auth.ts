@@ -7,6 +7,12 @@ import crypto from "crypto";
 
 const SALT_ROUNDS = 12;
 
+function getBaseUrl(req: Request): string {
+  const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "skillhub.space";
+  return `${proto}://${host}`;
+}
+
 // Generate secure random token
 function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
@@ -275,7 +281,8 @@ export function setupAuthRoutes(app: Express) {
       return res.status(500).json({ message: "Google OAuth not configured" });
     }
 
-    const redirectUri = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/api/auth/google/callback`;
+    const baseUrl = getBaseUrl(req);
+    const redirectUri = `${baseUrl}/api/auth/google/callback`;
     const scope = encodeURIComponent("openid email profile");
     const state = generateToken();
     
@@ -283,7 +290,14 @@ export function setupAuthRoutes(app: Express) {
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${state}&access_type=offline`;
     
-    res.redirect(authUrl);
+    req.session.save((err) => {
+      if (err) {
+        console.error("Failed to save OAuth state to session:", err);
+        return res.status(500).json({ message: "Session error" });
+      }
+      console.log("OAuth: redirecting to Google, state saved, redirectUri:", redirectUri);
+      res.redirect(authUrl);
+    });
   });
 
   // Google OAuth callback
@@ -292,13 +306,16 @@ export function setupAuthRoutes(app: Express) {
       const { code, state } = req.query;
       const sessionState = (req.session as any).oauthState;
 
+      console.log("OAuth callback: code exists:", !!code, "state match:", state === sessionState, "sessionState exists:", !!sessionState);
+
       if (!code || state !== sessionState) {
+        console.error("OAuth state mismatch - state:", state, "sessionState:", sessionState, "sessionID:", req.sessionID);
         return res.redirect("/?error=auth_failed");
       }
 
       const clientId = process.env.GOOGLE_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      const redirectUri = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/api/auth/google/callback`;
+      const redirectUri = `${getBaseUrl(req)}/api/auth/google/callback`;
 
       // Exchange code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -314,7 +331,9 @@ export function setupAuthRoutes(app: Express) {
       });
 
       const tokens = await tokenResponse.json();
+      console.log("OAuth token exchange status:", tokenResponse.status, "has access_token:", !!tokens.access_token);
       if (!tokens.access_token) {
+        console.error("OAuth token exchange failed:", JSON.stringify(tokens));
         return res.redirect("/?error=auth_failed");
       }
 
@@ -323,6 +342,7 @@ export function setupAuthRoutes(app: Express) {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
       const googleUser = await userInfoResponse.json();
+      console.log("OAuth user info:", googleUser.email, "id:", googleUser.id);
 
       // Check if identity already exists
       const [existingIdentity] = await db.select()
@@ -371,11 +391,16 @@ export function setupAuthRoutes(app: Express) {
         }
       }
 
-      // Set session
       (req.session as any).userId = userId;
       delete (req.session as any).oauthState;
 
-      res.redirect("/");
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.redirect("/?error=auth_failed");
+        }
+        res.redirect("/");
+      });
     } catch (error) {
       console.error("Google OAuth error:", error);
       res.redirect("/?error=auth_failed");

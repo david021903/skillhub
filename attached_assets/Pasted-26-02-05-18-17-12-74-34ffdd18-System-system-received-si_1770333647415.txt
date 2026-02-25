@@ -1,0 +1,112 @@
+26-02-05 18:17:12.74
+34ffdd18
+System
+system: received signal terminated
+2026-02-05 18:18:54.42
+2175d292
+System
+starting up user application
+2026-02-05 18:18:54.42
+2175d292
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 18:18:54.42
+2175d292
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 18:18:55.54
+2175d292
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 18:18:55.54
+2175d292
+User
+> skillhub-space@1.0.0 start
+2026-02-05 18:18:56.00
+2175d292
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 18:18:56.00
+2175d292
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 18:18:56.76
+2175d292
+User
+Application fully initialized
+2026-02-05 18:19:28.58
+2175d292
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 18:19:28.58
+2175d292
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 18:19:28.58
+2175d292
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 18:19:28.58
+2175d292
+User
+To prepare for this change:
+2026-02-05 18:19:28.58
+2175d292
+User
+(node:41) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 18:19:28.58
+2175d292
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 18:19:28.58
+2175d292
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 18:19:36.47
+2175d292
+User
+OAuth: redirecting to Google, state saved, redirectUri: https://skillhub.space/api/auth/google/callback
+2026-02-05 18:19:42.84
+2175d292
+User
+OAuth callback: code exists: true state match: true sessionState exists: true
+2026-02-05 18:19:42.89
+2175d292
+User
+OAuth token exchange status: 401 has access_token: false
+2026-02-05 18:19:42.89
+2175d292
+User
+OAuth token exchange failed: {"error":"invalid_client","error_description":"Unauthorized"}
+2026-02-05 18:20:07.62
+2175d292
+User
+OAuth: redirecting to Google, state saved, redirectUri: https://skillhub.space/api/auth/google/callback
+2026-02-05 18:20:12.00
+2175d292
+User
+OAuth callback: code exists: true state match: true sessionState exists: true
+2026-02-05 18:20:12.04
+2175d292
+User
+OAuth token exchange failed: {"error":"invalid_client","error_description":"Unauthorized"}
+2026-02-05 18:20:12.04
+2175d292
+User
+OAuth token exchange status: 401 has access_token: false
+2026-02-05 18:20:26.62
+2175d292
+User
+OAuth: redirecting to Google, state saved, redirectUri: https://skillhub.space/api/auth/google/callback
+2026-02-05 18:20:31.76
+2175d292
+User
+OAuth callback: code exists: true state match: true sessionState exists: true
+2026-02-05 18:20:31.80
+2175d292
+User
+OAuth token exchange failed: {"error":"invalid_client","error_description":"Unauthorized"}
+2026-02-05 18:20:31.80
+2175d292
+User
+OAuth token exchange status: 401 has access_token: false

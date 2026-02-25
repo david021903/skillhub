@@ -24,6 +24,7 @@ import {
   Palette,
   Sparkles,
   ExternalLink,
+  Shield,
 } from "lucide-react";
 
 interface HeaderProps {
@@ -43,18 +44,16 @@ export default function Header({ mobileMenuButton }: HeaderProps) {
       <div className="flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-4">
           {mobileMenuButton}
-          <Link href="/" className="flex items-center gap-2 lg:hidden">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-lg">🦞</span>
-            </div>
-            <span className="font-bold text-xl">SkillHub</span>
+          <Link href="/" className="flex items-center lg:hidden">
+            <img src="/logo-dark.png" alt="SkillHub" className="h-7 dark:invert" />
           </Link>
         </div>
 
         <div className="flex items-center gap-2">
           <Link href="/browse">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Search className="h-5 w-5" />
+            <Button variant="ghost" className="h-9 gap-2 px-3">
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Browse Skills</span>
             </Button>
           </Link>
 
@@ -151,6 +150,18 @@ export default function Header({ mobileMenuButton }: HeaderProps) {
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
+              
+              {(user as any)?.isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin" className="flex items-center gap-2 cursor-pointer">
+                      <Shield className="h-4 w-4" />
+                      Admin Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               
               <DropdownMenuSeparator />
               

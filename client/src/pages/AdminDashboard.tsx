@@ -39,7 +39,6 @@ import {
   ChevronRight,
   RefreshCw,
   X,
-  Download,
 } from "lucide-react";
 
 type ActivityEvent = {
@@ -68,9 +67,6 @@ type AdminStats = {
   todayComments: number;
   totalIssues: number;
   totalPRs: number;
-  totalDownloads: number;
-  todayInstalls: number;
-  weekInstalls: number;
 };
 
 type UserDetail = {
@@ -102,7 +98,6 @@ const EVENT_ICONS: Record<string, any> = {
   star: Star,
   issue: AlertCircle,
   pr: GitPullRequest,
-  install: Download,
 };
 
 const EVENT_COLORS: Record<string, string> = {
@@ -112,7 +107,6 @@ const EVENT_COLORS: Record<string, string> = {
   star: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   issue: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   pr: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  install: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -122,7 +116,6 @@ const EVENT_LABELS: Record<string, string> = {
   star: "Star",
   issue: "Issue",
   pr: "Pull Request",
-  install: "Download",
 };
 
 const FILTER_OPTIONS = [
@@ -133,7 +126,6 @@ const FILTER_OPTIONS = [
   { value: "stars", label: "Stars" },
   { value: "issues", label: "Issues" },
   { value: "prs", label: "Pull Requests" },
-  { value: "installs", label: "Downloads" },
 ];
 
 function timeAgo(dateStr: string) {
@@ -259,7 +251,7 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -288,22 +280,6 @@ export default function AdminDashboard() {
             <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
               <TrendingUp className="h-3 w-3" />
               +{stats?.newSkillsThisWeek || 0} this week
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Downloads</p>
-                <p className="text-2xl font-bold">{statsLoading ? "..." : stats?.totalDownloads || 0}</p>
-              </div>
-              <Download className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              +{stats?.todayInstalls || 0} today / +{stats?.weekInstalls || 0} this week
             </p>
           </CardContent>
         </Card>

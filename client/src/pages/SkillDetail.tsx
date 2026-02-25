@@ -14,7 +14,7 @@ import { SkillTabs } from "@/components/SkillTabs";
 import { CopyButton } from "@/components/CopyButton";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Star, Copy, ExternalLink, AlertCircle, RefreshCw, Github, GitFork } from "lucide-react";
+import { Star, Copy, ExternalLink, AlertCircle, RefreshCw, Github, GitFork, ArrowLeft } from "lucide-react";
 
 export default function SkillDetail() {
   const [, params] = useRoute("/skills/:owner/:slug");
@@ -112,6 +112,16 @@ export default function SkillDetail() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="gap-2 mb-2" 
+        onClick={() => window.history.back()}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Button>
+      
       <div className="flex flex-col md:flex-row gap-6 items-start">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">

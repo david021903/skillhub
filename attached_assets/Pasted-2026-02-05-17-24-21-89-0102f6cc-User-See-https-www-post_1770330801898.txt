@@ -1,0 +1,92 @@
+2026-02-05 17:24:21.89
+0102f6cc
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 17:24:21.89
+0102f6cc
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 17:24:21.89
+0102f6cc
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-02-05 17:24:21.89
+0102f6cc
+User
+(node:42) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 17:24:21.89
+0102f6cc
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 17:24:21.89
+0102f6cc
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 17:24:21.89
+0102f6cc
+User
+To prepare for this change:
+2026-02-05 17:26:51.15
+09518a54
+System
+system: received signal terminated
+2026-02-05 17:29:14.60
+f4b0414b
+System
+starting up user application
+2026-02-05 17:29:14.61
+f4b0414b
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-02-05 17:29:14.61
+f4b0414b
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-02-05 17:29:17.75
+f4b0414b
+User
+> skillhub-space@1.0.0 start
+2026-02-05 17:29:17.75
+f4b0414b
+User
+> NODE_ENV=production node dist/server/index.js
+2026-02-05 17:29:18.83
+f4b0414b
+User
+Server running on http://0.0.0.0:5000
+2026-02-05 17:29:18.83
+f4b0414b
+User
+Serving static files from: /home/runner/workspace/dist/public
+2026-02-05 17:29:20.47
+f4b0414b
+User
+Application fully initialized
+2026-02-05 17:31:10.77
+f4b0414b
+User
+(node:42) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-02-05 17:31:10.77
+f4b0414b
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-02-05 17:31:10.77
+f4b0414b
+User
+To prepare for this change:
+2026-02-05 17:31:10.77
+f4b0414b
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-02-05 17:31:10.77
+f4b0414b
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-02-05 17:31:10.77
+f4b0414b
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-02-05 17:31:10.77
+f4b0414b
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'

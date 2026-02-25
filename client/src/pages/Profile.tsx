@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import SkillCard from "@/components/SkillCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Star, BookOpen, MapPin, Link as LinkIcon, Calendar } from "lucide-react";
+import { Package, Star, BookOpen, MapPin, Link as LinkIcon, Calendar, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type TabType = "overview" | "skills" | "stars";
@@ -220,6 +220,16 @@ export default function Profile() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="gap-2 mb-4" 
+        onClick={() => window.history.back()}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Button>
+      
       <div className="flex flex-col md:flex-row gap-8">
         <div className="md:w-72 space-y-4">
           <Avatar className="h-64 w-64 mx-auto md:mx-0 rounded-full border-4 border-background shadow-lg">

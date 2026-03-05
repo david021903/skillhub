@@ -2,6 +2,7 @@ import http from "http";
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -143,11 +144,13 @@ async function initializeApp() {
   app.use("/api/skills/generate", aiLimiter);
   app.use("/api/skills/chat", aiLimiter);
 
-  // Setup auth, routes, and admin routes
+  // Setup auth, routes, admin routes, and SEO
   const { registerAdminRoutes } = await import("./admin-routes.js");
+  const { registerSeoRoutes, getSkillMetaTags, injectMetaTags } = await import("./seo.js");
   setupAuthRoutes(app);
   registerRoutes(app);
   registerAdminRoutes(app);
+  registerSeoRoutes(app);
 
   // Serve skill.md for agents
   app.get("/skill.md", (_req, res) => {
@@ -160,11 +163,38 @@ async function initializeApp() {
 
   if (process.env.NODE_ENV === "production") {
     const publicPath = path.join(__dirname, "../public");
-    // Serve static files
     app.use(express.static(publicPath));
-    // Catch-all for SPA routing
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(publicPath, "index.html"));
+    app.get("*", async (req, res) => {
+      const indexPath = path.join(publicPath, "index.html");
+      const skillMatch = req.path.match(/^\/skills\/([^/]+)\/([^/]+)\/?$/);
+      if (skillMatch) {
+        try {
+          const [, owner, slug] = skillMatch;
+          const meta = await getSkillMetaTags(owner, slug);
+          if (meta) {
+            const html = fs.readFileSync(indexPath, "utf-8");
+            return res.send(injectMetaTags(html, meta));
+          }
+        } catch {}
+      }
+      if (req.path === "/browse") {
+        try {
+          const html = fs.readFileSync(indexPath, "utf-8");
+          return res.send(injectMetaTags(html, {
+            title: "Browse Skills - SkillHub",
+            description: "Browse 1000+ OpenClaw agent skills. Search, filter, and discover skills for your AI agents.",
+            url: "https://skillhub.space/browse",
+            jsonLd: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "CollectionPage",
+              "name": "Browse Skills",
+              "url": "https://skillhub.space/browse",
+              "description": "Browse 1000+ OpenClaw agent skills",
+            }),
+          }));
+        } catch {}
+      }
+      res.sendFile(indexPath);
     });
   } else {
     const { createServer } = await import("vite");

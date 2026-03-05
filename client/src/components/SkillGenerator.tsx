@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Wand2, Copy, Check } from "lucide-react";
+import { Loader2, Wand2, Copy, Check, Key } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 interface GeneratorResult {
   skillMd: string;
@@ -29,6 +30,8 @@ export function SkillGenerator({ onGenerated }: SkillGeneratorProps) {
   const [result, setResult] = useState<GeneratorResult | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [needsApiKey, setNeedsApiKey] = useState(false);
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/skills/generate", {
@@ -38,9 +41,15 @@ export function SkillGenerator({ onGenerated }: SkillGeneratorProps) {
         body: JSON.stringify({ prompt, category, complexity }),
       });
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 400 && data.message?.toLowerCase().includes("api key")) {
+          setNeedsApiKey(true);
+          throw new Error(data.message);
+        }
         if (res.status === 401) throw new Error("Please sign in to generate skills");
-        throw new Error("Failed to generate skill");
+        throw new Error(data.message || "Failed to generate skill");
       }
+      setNeedsApiKey(false);
       return res.json() as Promise<GeneratorResult>;
     },
     onSuccess: (data) => {
@@ -143,6 +152,16 @@ export function SkillGenerator({ onGenerated }: SkillGeneratorProps) {
               </>
             )}
           </Button>
+          {needsApiKey && (
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              <Key className="h-3 w-3 text-amber-500" />
+              <Link href="/settings/ai">
+                <span className="text-xs text-muted-foreground hover:text-primary underline cursor-pointer">
+                  Add your OpenAI API key to use AI features
+                </span>
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
 

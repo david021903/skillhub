@@ -139,6 +139,14 @@ shsc browse                  # Interactive skill browser
 shsc validate                # Validate SKILL.md before publishing
 ```
 
+## SEO
+- `server/seo.ts`: SEO routes and dynamic meta tag injection
+- `/robots.txt`: Crawl directives for search engines
+- `/sitemap.xml`: Dynamic sitemap with all 1000+ public skill URLs
+- Production catch-all injects per-skill meta tags (title, description, OG, Twitter, JSON-LD)
+- JSON-LD structured data: WebSite schema on homepage, SoftwareApplication on skill pages
+- XSS-safe: HTML entities escaped in meta attrs, `</script>` escaped in JSON-LD
+
 ## Recent Changes
 - 2026-02-05: Rebranded from ClawSkillHub to SkillHub
   - Domain changed from clawskillhub.com to skillhub.space

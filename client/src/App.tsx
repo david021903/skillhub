@@ -44,6 +44,9 @@ function App() {
           <Route path="/skills/:owner/:slug">
             {(params) => <PublicLayout><SkillDetail /></PublicLayout>}
           </Route>
+          <Route path="/skills/:owner">
+            {(params) => <PublicLayout><Profile /></PublicLayout>}
+          </Route>
           <Route path="/users/:handle">
             {(params) => <PublicLayout><Profile /></PublicLayout>}
           </Route>
@@ -76,6 +79,7 @@ function App() {
             <Route path="/" component={Home} />
             <Route path="/browse" component={Browse} />
             <Route path="/skills/:owner/:slug" component={SkillDetail} />
+            <Route path="/skills/:owner" component={Profile} />
             <Route path="/new" component={CreateSkill} />
             <Route path="/my-skills" component={MySkills} />
             <Route path="/starred" component={Starred} />

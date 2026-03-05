@@ -1,0 +1,71 @@
+Overview
+Verify ownership of a site by uploading a special HTML file to a specific location on your site. This file is tied to a specific user. Follow the instructions on the verification details page. Removing this verification file from your site will cause you to lose verification for the site.
+
+⚠️ Requirements
+The file cannot require authentication. The directory where you upload your HTML file must be available to non-logged-in users. You can test this by trying to visit your file in an incognito window in your browser.
+You must be able to upload a file to the root directory of your website, where it will be available to web browsers. If you do not have permissions to do this, try another verification method. If you are using a website hosting platform, you might need to search your service's help pages to see if this is possible.
+HTML file upload can be used for URL-prefix properties, but not Domain properties.
+Steps
+To verify ownership using an HTML file:
+
+If you are using a website hosting platform, search your service's help pages for custom instructions to verify your site on Search Console. If you don't find any information, then continue on to the next steps.
+Read the requirements for this verification technique.
+Choose the HTML file upload method on the Ownership verification page for your property.
+Download the provided verification file. This file is unique to you; it cannot be used to identify anyone else, and is associated with your Gmail account.
+Upload the verification file to your website so that it will be available at the address specified in the verification details page. This is typically the root directory for your property. (That is, if you defined your property as https://example.com, and the file provided is named 1234.txt, then the file should be browsable at https://example.com/1234.txt.) Search Console does not follow redirects when looking for this file. You can add newlines at the end of the file body, if required, but do not otherwise modify the file name or content.
+Confirm that you can see the file by visiting it in your browser in the location specified by the Search Console verification wizard. If the file isn't available to your browser at that URL, Google won't be able to find for verification purposes. TIP: Use an incognito window in your browser to confirm that you don't need to log in to access it.
+Complete verification by clicking Verify in the verification details page.
+If verification fails, see Potential errors below to troubleshoot the issue.
+Troubleshooting
+The following errors can occur with HTML file upload verification:
+
+Your verification file was not found in the required location
+Search Console couldn't find your personal verification file at your property's root location. Upload the provided verification file to the specified location on your site without any modifications. If the file name or content does not match the HTML file provided, we won't be able to verify your site ownership. You can verify whether the file is present by trying to visit it in your browser.
+Your verification file has the wrong content
+The verification file that Search Console provides must be used exactly as provided, without modifying the name or content of the file. If the file name or content does not match the file provided by Search Console for the logged in user, we can't verify ownership. Please use the verification file provided by Search Console, and upload it to the specified location without any modifications.
+Hacked verification file.
+Your verification attempt failed in a way that indicates that your site might have been hacked. Learn more about detecting and fixing hacked sites.
+Your verification file redirects to a disallowed location
+Search Console won't follow redirects to another domain for verification files, but will follow redirects within the same domain. Browse to your file and see whether you have been redirected to a new domain. If your site redirects all traffic to another site, we recommend using HTML tag verification instead. Some examples of supported and unsupported redirects:
+http://example.com to http://www.example.com— Supported
+http://example.com to https://example.com -- Supported; redirects to a new protocol (http/https) are supported.
+example.com to foo.com -- not supported, different domains.
+m.example.com to example.com -- 
+example.com to m.example.com -- 
+Additional common verification problems are listed below.
+HTML tag
+Domain name provider
+Google Analytics tracking code
+Google Tag Manager container snippet
+Google Sites
+Blogger
+Where should I put my verification tag?
+If you are using a tag-based verification method (Google Analytics, Google Tag Manager, or the HTML <meta> tag methods), Search Console will look for your verification tag in the page to which a non-logged-in user is redirected when visiting the URL that defines your property.
+
+Example
+
+If you define your property as https://example.com, and any non-logged in user who types that URL in their browser is redirected to https://example.com/home, then Search Console will look for your verification tag in the page https://example.com/home.
+
+For other verification methods, such as the file upload method, redirects are not followed.
+
+Common verification errors
+In addition to any method-specific verification errors, the following verification errors are possible in most verification methods:
+
+Incorrect tag/snippet/file errors
+Be sure to use the exact tag, code snippet, or file provided to you when beginning verification.
+The connection to your server timed out.
+We were unable to verify your file because we received a server timeout. This could be because your server is down or is busy and responding slowly. Make sure that your server is responding and try again.
+We encountered an error looking up your site's domain name.
+We tried to access your verification file, but were unable to access your domain due to a DNS error. This could be because your server is down, or there is an issue with the DNS routing to your domain. Make sure that your domain is resolving correctly and try again.
+The download request was redirected too many times.
+Check the URL for potential issues, such as an infinite loop.
+Your server returned an invalid response.
+This can happen if your site is requires password authentication, or if we cannot access it for other reasons.
+We were unable to connect to your server.
+Make sure that your server is not down, and that your domain is resolving correctly, and try again.
+An internal error occurred.
+If this problem persists, check the Search Central Help Forum for updates.
+Timeout
+Either your site or the domain server stopped responding to our requests (depending on the verification method used). Confirm that your site is responding, and then try again.
+Could not find your domain
+We tried to resolve the site URL that you gave us, but it is unknown to the DNS service. Check that you are providing the correct URL for your property.

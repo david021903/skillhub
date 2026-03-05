@@ -273,7 +273,7 @@ export function registerAdminRoutes(app: Express) {
 
   app.get("/api/admin/users/:userId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      const userId = String(req.params.userId);
       const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -325,7 +325,7 @@ export function registerAdminRoutes(app: Express) {
 
   app.delete("/api/admin/comments/:commentId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const { commentId } = req.params;
+      const commentId = String(req.params.commentId);
       await db.delete(skillComments).where(eq(skillComments.id, commentId));
       res.json({ message: "Comment deleted" });
     } catch (error) {
@@ -350,7 +350,7 @@ export function registerAdminRoutes(app: Express) {
 
   app.post("/api/admin/skills/:skillId/flag", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const { skillId } = req.params;
+      const skillId = String(req.params.skillId);
       const { action } = req.body;
 
       if (action === "archive") {
@@ -379,7 +379,7 @@ export function registerAdminRoutes(app: Express) {
 
   app.delete("/api/admin/issue-comments/:commentId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const { commentId } = req.params;
+      const commentId = String(req.params.commentId);
       await db.delete(issueComments).where(eq(issueComments.id, commentId));
       res.json({ message: "Issue comment deleted" });
     } catch (error) {
@@ -390,7 +390,7 @@ export function registerAdminRoutes(app: Express) {
 
   app.delete("/api/admin/pr-comments/:commentId", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const { commentId } = req.params;
+      const commentId = String(req.params.commentId);
       await db.delete(prComments).where(eq(prComments.id, commentId));
       res.json({ message: "PR comment deleted" });
     } catch (error) {

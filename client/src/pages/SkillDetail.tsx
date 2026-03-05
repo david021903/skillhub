@@ -14,13 +14,15 @@ import { SkillTabs } from "@/components/SkillTabs";
 import { CopyButton } from "@/components/CopyButton";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Star, Copy, ExternalLink, AlertCircle, RefreshCw, Github, GitFork, ArrowLeft } from "lucide-react";
+import { Star, Copy, ExternalLink, AlertCircle, RefreshCw, Github, GitFork, ArrowLeft, ChevronDown, CheckCircle2, AlertTriangle, XCircle, MinusCircle } from "lucide-react";
+import { useState } from "react";
 
 export default function SkillDetail() {
   const [, params] = useRoute("/skills/:owner/:slug");
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showHealthDetails, setShowHealthDetails] = useState(false);
 
   const { data: skill, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/skills", params?.owner, params?.slug],
@@ -204,12 +206,62 @@ export default function SkillDetail() {
       
       {latestValidation && latestValidation.score > 0 && (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Health Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ValidationScore score={latestValidation.score} />
-          </CardContent>
+          <button
+            className="w-full text-left"
+            onClick={() => setShowHealthDetails(!showHealthDetails)}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Health Score</CardTitle>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showHealthDetails ? "rotate-180" : ""}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ValidationScore score={
+                latestValidation.checks && (latestValidation.checks as any[]).length > 0
+                  ? Math.round(((latestValidation.checks as any[]).filter((c: any) => c.status === "passed").length / (latestValidation.checks as any[]).length) * 100)
+                  : latestValidation.score
+              } />
+            </CardContent>
+          </button>
+          {showHealthDetails && latestValidation.checks && (() => {
+            const checks = latestValidation.checks as Array<{ id: string; category: string; status: string; message?: string }>;
+            const statusOrder: Record<string, number> = { failed: 0, warning: 1, skipped: 2, passed: 3 };
+            const sorted = [...checks].sort((a, b) => (statusOrder[a.status] ?? 2) - (statusOrder[b.status] ?? 2));
+            const passed = checks.filter(c => c.status === "passed").length;
+            const warnings = checks.filter(c => c.status === "warning").length;
+            const failed = checks.filter(c => c.status === "failed").length;
+            return (
+              <CardContent className="pt-0 border-t">
+                <div className="flex gap-4 text-xs text-muted-foreground pt-3 pb-2">
+                  <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" />{passed} passed</span>
+                  {warnings > 0 && <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-yellow-500" />{warnings} warnings</span>}
+                  {failed > 0 && <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-red-500" />{failed} failed</span>}
+                </div>
+                <div className="space-y-2">
+                  {sorted.map((check) => (
+                    <div key={check.id} className="flex items-start gap-2 text-sm">
+                      {check.status === "passed" ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      ) : check.status === "warning" ? (
+                        <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+                      ) : check.status === "failed" ? (
+                        <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                      ) : (
+                        <MinusCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <span className={check.status === "passed" ? "text-muted-foreground" : check.status === "failed" ? "text-red-400" : check.status === "warning" ? "text-yellow-400" : ""}>
+                          {check.message || check.id}
+                        </span>
+                        <span className="ml-2 text-xs text-muted-foreground/60">{check.category}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            );
+          })()}
         </Card>
       )}
 

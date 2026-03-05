@@ -18,7 +18,8 @@ type TabType = "overview" | "skills" | "stars";
 export default function Profile() {
   const [, usersParams] = useRoute("/users/:handle");
   const [, uParams] = useRoute("/u/:handle");
-  const params = usersParams || uParams;
+  const [, skillsOwnerParams] = useRoute("/skills/:owner");
+  const params = usersParams || uParams || (skillsOwnerParams ? { handle: skillsOwnerParams.owner } : null);
   
   const { user } = useAuth();
   const { toast } = useToast();

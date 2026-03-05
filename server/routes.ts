@@ -109,6 +109,12 @@ export function registerRoutes(app: Express) {
         downloads: skills.downloads,
         tags: skills.tags,
         createdAt: skills.createdAt,
+        validationScore: sql<number | null>`(
+          SELECT sv.score FROM skill_validations sv
+          JOIN skill_versions svv ON sv.version_id = svv.id
+          WHERE svv.skill_id = ${skills.id}
+          ORDER BY svv.published_at DESC NULLS LAST LIMIT 1
+        )`.as("validation_score"),
         owner: {
           id: users.id,
           firstName: users.firstName,
@@ -892,6 +898,12 @@ export function registerRoutes(app: Express) {
         tags: skills.tags,
         license: skills.license,
         createdAt: skills.createdAt,
+        validationScore: sql<number | null>`(
+          SELECT sv.score FROM skill_validations sv
+          JOIN skill_versions svv ON sv.version_id = svv.id
+          WHERE svv.skill_id = ${skills.id}
+          ORDER BY svv.published_at DESC NULLS LAST LIMIT 1
+        )`.as("validation_score"),
         owner: {
           id: users.id,
           firstName: users.firstName,

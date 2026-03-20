@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Mail, Lock, User, Chrome } from "lucide-react";
+import { Loader2, Mail, Lock, User, Chrome, Github } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthFormsProps {
@@ -62,6 +62,10 @@ export function AuthForms({ defaultTab = "login", onSuccess }: AuthFormsProps) {
 
   const handleGoogleLogin = () => {
     window.location.href = "/api/auth/google";
+  };
+
+  const handleGithubLogin = () => {
+    window.location.href = "/api/auth/github";
   };
 
   return (
@@ -122,10 +126,16 @@ export function AuthForms({ defaultTab = "login", onSuccess }: AuthFormsProps) {
               </div>
             </div>
             
-            <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
-              <Chrome className="h-4 w-4 mr-2" />
-              Google
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
+                <Chrome className="h-4 w-4 mr-2" />
+                Google
+              </Button>
+              <Button variant="outline" className="w-full" onClick={handleGithubLogin}>
+                <Github className="h-4 w-4 mr-2" />
+                GitHub
+              </Button>
+            </div>
           </TabsContent>
           
           <TabsContent value="register" className="mt-0">
@@ -229,10 +239,16 @@ export function AuthForms({ defaultTab = "login", onSuccess }: AuthFormsProps) {
               </div>
             </div>
             
-            <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
-              <Chrome className="h-4 w-4 mr-2" />
-              Google
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
+                <Chrome className="h-4 w-4 mr-2" />
+                Google
+              </Button>
+              <Button variant="outline" className="w-full" onClick={handleGithubLogin}>
+                <Github className="h-4 w-4 mr-2" />
+                GitHub
+              </Button>
+            </div>
           </TabsContent>
         </CardContent>
       </Tabs>

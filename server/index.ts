@@ -57,6 +57,27 @@ async function initializeApp() {
   // Trust proxy for rate limiting behind Replit's proxy
   app.set("trust proxy", 1);
 
+  // Docs subdomain rewrite: docs.skillhub.space/foo → /docs/foo
+  app.use((req, _res, next) => {
+    const host = (req.hostname || "").replace(/:\d+$/, "");
+    if (host.startsWith("docs.")) {
+      const originalPath = req.path;
+      if (
+        !originalPath.startsWith("/docs") &&
+        !originalPath.startsWith("/api") &&
+        !originalPath.startsWith("/assets") &&
+        !originalPath.startsWith("/@") &&
+        !originalPath.startsWith("/node_modules") &&
+        !originalPath.startsWith("/src") &&
+        !originalPath.match(/\.(js|css|ico|png|jpg|svg|woff|woff2|ttf|map|json)$/) &&
+        originalPath !== "/health"
+      ) {
+        req.url = "/docs" + (originalPath === "/" ? "" : originalPath);
+      }
+    }
+    next();
+  });
+
   // Basic middleware
   app.use(cors({
     origin: true,
@@ -146,7 +167,7 @@ async function initializeApp() {
 
   // Setup auth, routes, admin routes, and SEO
   const { registerAdminRoutes } = await import("./admin-routes.js");
-  const { registerSeoRoutes, getSkillMetaTags, injectMetaTags } = await import("./seo.js");
+  const { registerSeoRoutes, getSkillMetaTags, injectMetaTags, getBrowsePreRendered, getSkillPreRendered, getUserPreRendered, docsPreRendered } = await import("./seo.js");
   setupAuthRoutes(app);
   registerRoutes(app);
   registerAdminRoutes(app);
@@ -173,13 +194,15 @@ async function initializeApp() {
           const meta = await getSkillMetaTags(owner, slug);
           if (meta) {
             const html = fs.readFileSync(indexPath, "utf-8");
-            return res.send(injectMetaTags(html, meta));
+            const skillContent = await getSkillPreRendered(owner, slug);
+            return res.send(injectMetaTags(html, { ...meta, preRenderedContent: skillContent || undefined }));
           }
         } catch {}
       }
       if (req.path === "/browse") {
         try {
           const html = fs.readFileSync(indexPath, "utf-8");
+          const browseContent = await getBrowsePreRendered();
           return res.send(injectMetaTags(html, {
             title: "Browse Skills - SkillHub",
             description: "Browse 1000+ OpenClaw agent skills. Search, filter, and discover skills for your AI agents.",
@@ -191,7 +214,99 @@ async function initializeApp() {
               "url": "https://skillhub.space/browse",
               "description": "Browse 1000+ OpenClaw agent skills",
             }),
+            preRenderedContent: browseContent,
           }));
+        } catch (e) {
+          console.error("Browse SSR error:", e);
+        }
+      }
+      if (req.path === "/" || req.path === "") {
+        try {
+          const html = fs.readFileSync(indexPath, "utf-8");
+          return res.send(injectMetaTags(html, {
+            title: "SkillHub - OpenClaw Skills Registry",
+            description: "Discover, share, and install AI agent skills. SkillHub is the registry for OpenClaw skills — browse 1000+ verified skills, publish your own, and supercharge your agents.",
+            url: "https://skillhub.space/",
+            jsonLd: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "SkillHub",
+              "url": "https://skillhub.space",
+              "description": "The OpenClaw Skills Registry — discover, share, and install AI agent skills",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://skillhub.space/browse?search={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            }),
+            preRenderedContent: `<article>
+<h1>SkillHub — The OpenClaw Skills Registry</h1>
+<p>Discover, share, and install AI agent skills. SkillHub is the central registry for OpenClaw skills — similar to how npm works for JavaScript or PyPI works for Python, but purpose-built for AI agent skill packages.</p>
+<p>Browse over 1,000 verified and community-contributed skills. Each skill extends your AI agent's capabilities with new instructions, tools, and workflows. Skills are published in the open SKILL.md format and can be installed with a single command.</p>
+<section>
+<h2>What is SkillHub?</h2>
+<p>SkillHub is a platform where developers and AI enthusiasts can discover, publish, and manage OpenClaw agent skills. Think of it as GitHub meets npm — you can browse a library of skills, star your favorites, fork and improve community skills, and publish your own creations for others to use.</p>
+</section>
+<section>
+<h2>Getting Started</h2>
+<p>Install the shsc command-line tool with <code>npm install -g shsc</code>, then run <code>shsc search</code> to find skills or <code>shsc install owner/skill-name</code> to install one. You can also browse and install skills directly from this website without any setup.</p>
+</section>
+<section>
+<h2>Key Features</h2>
+<ul>
+<li>Browse and search over 1,000 skills with filtering and sorting</li>
+<li>One-command installation via the shsc CLI tool</li>
+<li>Automatic validation pipeline for security and quality</li>
+<li>Version management with semantic versioning</li>
+<li>Issues and pull requests for community collaboration</li>
+<li>AI-powered skill explainer, generator, and chat assistant</li>
+</ul>
+</section>
+<nav><a href="/browse">Browse Skills</a> | <a href="/docs">Documentation</a> | <a href="/docs/quick-start">Quick Start Guide</a></nav>
+</article>`,
+          }));
+        } catch {}
+      }
+      if (req.path.startsWith("/docs")) {
+        const docsPage = docsPreRendered[req.path] || docsPreRendered[req.path.replace(/\/$/, "")];
+        if (docsPage) {
+          try {
+            const html = fs.readFileSync(indexPath, "utf-8");
+            return res.send(injectMetaTags(html, {
+              title: docsPage.title,
+              description: docsPage.description,
+              url: `https://skillhub.space${req.path}`,
+              jsonLd: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": docsPage.title,
+                "url": `https://skillhub.space${req.path}`,
+              }),
+              preRenderedContent: docsPage.content,
+            }));
+          } catch {}
+        }
+      }
+      const userMatch = req.path.match(/^\/(users|u|skills)\/([^/]+)\/?$/);
+      if (userMatch) {
+        const handle = userMatch[2];
+        try {
+          const userData = await getUserPreRendered(handle);
+          if (userData) {
+            const html = fs.readFileSync(indexPath, "utf-8");
+            return res.send(injectMetaTags(html, {
+              title: userData.title,
+              description: userData.description,
+              url: `https://skillhub.space${req.path}`,
+              jsonLd: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "ProfilePage",
+                "name": userData.title,
+                "url": `https://skillhub.space${req.path}`,
+              }),
+              preRenderedContent: userData.content,
+            }));
+          }
         } catch {}
       }
       res.sendFile(indexPath);

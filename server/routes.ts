@@ -1810,6 +1810,11 @@ export function registerRoutes(app: Express) {
       
       if (!versionData) return res.status(404).json({ message: "Version not found" });
       
+      await db.update(skills)
+        .set({ downloads: sql`${skills.downloads} + 1`, weeklyDownloads: sql`${skills.weeklyDownloads} + 1` })
+        .where(eq(skills.id, skill.id));
+      logActivity(skill.id, null, "download", { version: versionData.version, format: "md" });
+
       res.setHeader("Content-Type", "text/markdown");
       res.setHeader("Content-Disposition", `attachment; filename="${skill.slug}-${versionData.version}.md"`);
       res.send(versionData.skillMd);
@@ -1843,13 +1848,13 @@ export function registerRoutes(app: Express) {
       // Get all files for this version
       const files = await db.select().from(skillFiles).where(eq(skillFiles.versionId, versionData.id));
       
-      // Increment download count
       await db.update(skillVersions)
         .set({ downloads: sql`COALESCE(downloads, 0) + 1` })
         .where(eq(skillVersions.id, versionData.id));
       await db.update(skills)
-        .set({ weeklyDownloads: sql`COALESCE(weekly_downloads, 0) + 1` })
+        .set({ downloads: sql`${skills.downloads} + 1`, weeklyDownloads: sql`COALESCE(weekly_downloads, 0) + 1` })
         .where(eq(skills.id, skill.id));
+      logActivity(skill.id, null, "download", { version: versionData.version, format: "zip" });
       
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename="${skill.slug}-${versionData.version}.zip"`);

@@ -167,13 +167,13 @@ export default function Header({ mobileMenuButton }: HeaderProps) {
               
               <DropdownMenuItem asChild>
                 <a 
-                  href="https://github.com/openclaw" 
+                  href="https://docs.skillhub.space" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 cursor-pointer"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  OpenClaw Docs
+                  Docs
                 </a>
               </DropdownMenuItem>
               

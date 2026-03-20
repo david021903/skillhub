@@ -1,0 +1,151 @@
+URL Inspection tool
+About the URL Inspection report and test
+The URL Inspection tool provides information about Google's indexed version of a specific page, and also allows you to test whether a URL might be indexable. Information includes details about structured data, video, linked AMP, and indexing/indexability.
+
+There are two ways to access the URL Inspection tool:
+Type the fully-qualified URL to inspect in the inspection search bar at the top of any Search Console screen. The URL must be in the currently opened property.
+Click an Inspect  link next to a page URL in most reports. Sometimes you need to hover over the URL to see this option.
+Open the URL Inspection Tool
+
+ 
+
+
+
+Common tasks
+See the status of a URL in the Google index: Retrieve information about Google's indexed version of your page. See why Google could or couldn't index your page.
+Inspect a live URL: Test whether a page on your site might be indexable.
+Request indexing for a URL: Request that a URL be crawled by Google.
+View a rendered version of the page: See a screenshot of how the Google-InspectionTool sees the page.
+View loaded resources, JavaScript output, and other information: To see a list of resources, page code, and more information, click View crawled page > More info (indexed result) or View tested page > More info (live test).
+Troubleshoot a missing page: There can be many reasons why a page hasn't been indexed. URL Inspection can help troubleshoot some of them.
+Learn your canonical page: Inspect the indexed version of the page and look at the Page indexing > Google-selected canonical field. You can determine the canonical version only in the indexed data; the live test cannot predict whether or not the tested version will be considered canonical.
+What isn't tested
+The test results don't test for the following things, which are required to appear in Google:
+
+The page and its structured data must conform to quality and security guidelines.
+Whether the site is free of manual actions or security issues.
+Whether the site or page is subject to content removal for legal or other reasons.
+Whether a URL has been temporarily blocked in Search Console.
+(Live test) Whether a video is indexed or not. Live test reports only if a video is detected, not if it's indexed.
+See the status of a URL in the Google index
+You can request detailed Google index information about a URL in your property, including indexability, any rich results or videos found, and more.
+
+To see information in the Google index about a URL:
+
+Open the URL Inspection tool.
+Enter the complete URL to inspect. A few notes:
+The URL must be in the current property. To test a URL in a property that you don't own, use the appropriate non-owner test, such as the Rich Results test or AMP test.
+AMP vs non-AMP URLs: You can inspect both AMP and non-AMP URLs. The tool provides information about the corresponding AMP and non-AMP version of the page.
+Canonical/Alternate status: If the page is an alternate/duplicate versions, the tool also provides information about the canonical version, if the canonical version is in a property that you own.
+Read Understanding the results.
+If you've fixed issues since the data was acquired, test the live URL to see if Google thinks these issues are fixed. Note that not all issues can be tested.
+Optionally request indexing for the URL.
+There is a daily limit of inspection requests for each property that you own.
+
+About the indexed URL status
+Key points
+This is not a live test. The results shown are from most recently indexed version of a page, not the live version on the web. The information from the index is used by Google in search results. Your page may have changed or become unavailable since Google last saw it. To test the current version of the page as Google would see it, select the Live Test button on the page.
+"URL is on Google" doesn't actually guarantee that your page will appear in Search results. The report doesn't check all conditions for appearing on Google. For a definitive test of whether your URL is appearing, search for the page URL on Google.
+If the URL redirects to another URL, the results reflect the tested URL in the index, not the redirect target in the index. To see the indexing results for the canonical of a redirected page, click the INSPECT button in the Page indexing > Indexing section.
+Understanding the results
+Read the overall page status at the top of the tool to see whether or not the URL is eligible to appear in Google Search results: URL is on Google means that the URL is eligible to appear in Search results, but is not guaranteed to be there. URL is not on Google means that the URL can't appear in Search results.
+Expand the Page indexing or Video indexing sections to see more details:
+Discovery: How Google found the URL.
+Crawl: If Google was able to crawl the page, when it was crawled, or any obstacles that it encountered when crawling the URL. If the status is URL is not on Google, the reason why can generally be found here.
+Indexing: The canonical URL that Google chose for this page.
+Enhancements & experience: If you have structured data, if the page is an AMP or has an associated AMP, you will see details in the Enhancements section.
+To see information about the request, including the HTTP request and response, and the returned HTML, click View crawled page. If this link is disabled, it is because there was a problem fetching the page; hover over the disabled button to see the reason.
+ 
+
+The index status includes the following information:
+
+Overall page status
+Page indexing (Can Google fetch and index the page?)
+Video indexing (Videos found on the page)
+Enhancements (AMP, rich results)
+Additional response data
+ 
+
+Live URL test
+Run a live test of a URL in your property to check for indexing issues, structured data, and more. The life test is useful when fixing your page, to test whether an issue was fixed.
+
+To run a live test for potential indexing errors:
+
+Inspect the URL. Note: it's fine if the page hasn't been indexed yet, or has failed indexing, but the page must be accessible from the internet without any login requirements.
+Click Test live URL.
+Read understanding the live test results to understand what you're looking at.
+You can toggle between the live test results and the indexed results by clicking Google Index or Live Test on the page.
+To rerun a live test, click the re-run test button Reload on the test page.
+To see details about the page, including a screenshot and HTTP response headers, click View crawled page.
+There is a per-property daily limit of live inspections.
+
+About the live test results
+Key points:
+
+This is a live test: the tool fetches and examines the URL in real time. The information shown in the live test can differ from the indexed URL for reasons described below.
+The live test does not check for the presence of the URL in any sitemaps or any referring pages.
+The live test does not test for all possible indexing issues, including whether this is a duplicate or alternate page. Duplicate pages aren't indexed.
+The live test does not check that your page conforms to quality and security guidelines, manual actions, content removals, or temporarily blocked URLs.
+The Indexable status in the live URL can be different from the Page availability status on the indexed URL for these reasons:
+You have changed or fixed something in the live URL, such as removing (or adding) a noindex tag or a robots.txt block, and the changes were not yet indexed. Examine the difference between the indexed and live results, or check the page version history on your site to discover the differences between the indexed version and the live version.
+The live test does not support all the index states in the indexed version. Some states in the indexed version aren't tested or don't make sense in a live test, and will be reported differently in the live test. See the indexable section details to learn the unsupported states.
+The live test reports on detected videos on the page, but does not report on the indexing status of the video
+The test first follows any redirects implemented by the page, then tests the page. However, the test does not indicate that it has followed a redirect, nor will it display the final URL that was tested.
+Does a valid result mean that my page will be indexed?
+
+No. The live URL test only confirms if Google-InspectionTool can access your page for indexing. There is no definitive test that can guarantee whether your page will be included in the Google index. Even if you get a valid or warning verdict in the live test, your page must still fulfill other conditions in order to be indexed. For instance:
+
+The page cannot be subject to any manual actions or legal issues.
+The page cannot be a duplicate of another indexed page; it must either be unique, or selected as the canonical version of a set of similar pages.
+The page quality must be high enough to warrant indexing.
+ 
+
+The live test results include the following information:
+
+Overall page status (live test)
+Availability (live test)
+Other enhancements: AMP, structured data (live test)
+Additional response data (live test)
+Site-wide availability issues
+View the rendered page
+You can view a screenshot of the rendered page as the Google-InspectionTool sees it. This is useful for confirming that all elements of the page are present and appear as you intend. Differences might be the result of resources that are blocked to the Google-InspectionTool.
+
+A screenshot is available only in a live test with a successful test result. Screenshots are not available for the indexed URL, or for non-successful fetches of the live test. The page must be reachable to generate a screenshot. If your page is behind a firewall, you can expose it to the URL Inspection tool using a tunnel.
+
+To view the rendered page:
+
+Inspect the homepage of your site.
+Click Test live URL on the index results page.
+Click View tested page on the page verdict card to open additional information panels. If this option is not available it is typically because the page cannot be reached for the live test.
+Click the Screenshot tab.
+Request (re)indexing
+You can request that an inspected URL be indexed by Google. Indexing can take up to a week or two; you can check the progress using this tool.
+
+Some caveats when requesting indexing:
+Indexing typically takes only a day or so, but can take much longer in some cases.
+Submitting a request does not guarantee that the page will appear in the Google Index.
+There is a daily limit to how many index requests you can submit. If you want many pages indexed, try submitting a sitemap to Google.
+To request indexing for a URL:
+
+Inspect the page URL.
+Click Request indexing on the inspection result page for the URL. If the page passes a quick check to test for immediate indexing errors, it will be submitted to the indexing queue. You cannot request indexing if the page is considered to be non-indexable in the live test.
+To request indexing of many new or updated pages, your best choice is to submit a sitemap, with the updated pages marked by <lastmod>.
+
+Troubleshoot a missing page
+If you think your page hasn't been indexed, here's how to verify and troubleshoot the issue.
+
+Check the index status of the page. Inspect the URL, either by entering the URL in the inspection URL textbox, or by clicking the inspect button shown next to a URL in one of the other Search Console reports (you might need to hover over a URL to see this button).
+The initial test results show you Google's information about the URL in the Google index. These Google index results are used to generate search results. Note: This initial page is not a live test of the URL. Live testing is covered later.
+If the URL status starts with "URL is on Google", then the page should be available in Google Search. You can verify this by searching for the URL in Google. If the page isn't in search results:
+Check the Manual Actions report and Security Issues report for issues affecting that page. Issues on either report can prevent your page from appearing in search results.
+Check to see if someone has temporarily blocked the page.
+If none of the previous issues affect the page, continue debugging the issue as described here.
+If the URL status is "URL is not available to Google" or "URL is not on Google", expand the Availability section.
+The availability section header should include a label briefly describing why the URL could not be indexed. See the list of values and possible fix instructions. If the label is URL is unknown to Google, it means that Google hasn't seen that URL before, so you should request that the page be indexed. Indexing typically takes a few days.
+If Crawl allowed? is "No," that means Google can't crawl the page because of a robots.txt rule, which prevents Google from crawling the page. Read how to check and fix this issue.
+If Indexing allowed? is "No", that means your site is returning a "noindex" tag or header that prevents Google from indexing the page and showing it in Google Search results. You'll have to remove this tag or header from the page before Google will index it.
+If you've changed the page since the crawl time listed, you can test your current version of the page by clicking Test live URL. If the status shown at the top of the page valid, then the page can probably be indexed (note that not all indexing issues can be detected by the live test).
+Known issues
+In a few cases, we don't report the sitemap for a page that was submitted in a sitemap. We are working to fix this.
+Details, including the screenshot, are taken from the mobile version of the page, even if the tested page has a valid, linked AMP page.
+ 

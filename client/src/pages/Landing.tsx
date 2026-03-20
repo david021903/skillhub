@@ -64,6 +64,9 @@ export default function Landing() {
             <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Browse Skills
             </Link>
+            <a href="https://docs.skillhub.space" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Docs
+            </a>
           </div>
           <Dialog open={authOpen} onOpenChange={setAuthOpen}>
             <DialogTrigger asChild>
@@ -327,8 +330,11 @@ export default function Landing() {
         </section>
 
         <footer className="border-t bg-muted/30 py-8">
-          <div className="container px-4 text-center text-sm text-muted-foreground">
-            <p>&copy; 2025 SkillHub. Built for the OpenClaw community.</p>
+          <div className="container px-4 text-center text-sm text-muted-foreground flex items-center justify-center gap-3">
+            <p>&copy; 2026 SkillHub. All rights reserved. Created by 0BL1V1ON AI</p>
+            <a href="https://x.com/skillhubspace" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/60 hover:text-foreground transition-colors" aria-label="Follow us on X">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
           </div>
         </footer>
       </main>

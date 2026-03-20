@@ -41,6 +41,7 @@ function getScoreBg(score: number): string {
 
 export default function SkillCard({ skill }: SkillCardProps) {
   const ownerHandle = skill.owner?.handle || skill.owner?.id;
+  const isOfficial = skill.owner?.handle === "skillhub";
   const ownerName = skill.owner?.firstName 
     ? `${skill.owner.firstName} ${skill.owner.lastName || ""}`.trim()
     : skill.owner?.handle || "Unknown";
@@ -73,15 +74,18 @@ export default function SkillCard({ skill }: SkillCardProps) {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={skill.owner?.profileImageUrl || undefined} />
-                <AvatarFallback className="text-xs">
-                  {ownerName[0]}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-muted-foreground">{ownerName}</span>
-            </div>
+            {!isOfficial && (
+              <div className="flex items-center gap-2">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={skill.owner?.profileImageUrl || undefined} />
+                  <AvatarFallback className="text-xs">
+                    {ownerName[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground">{ownerName}</span>
+              </div>
+            )}
+            {isOfficial && <div />}
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Star className="h-4 w-4" />

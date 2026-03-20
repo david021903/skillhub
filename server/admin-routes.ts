@@ -4,7 +4,7 @@ import {
   skills, skillVersions, skillStars, skillActivities, skillComments,
   skillIssues, issueComments, skillPullRequests, prComments, users, skillFiles
 } from "../shared/schema.js";
-import { eq, desc, and, sql, count, gte, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, count, gte, inArray, or } from "drizzle-orm";
 import { isAuthenticated } from "./auth.js";
 
 async function isAdmin(req: Request, res: Response, next: NextFunction) {
@@ -36,6 +36,17 @@ export function registerAdminRoutes(app: Express) {
       const [totalIssues] = await db.select({ count: count() }).from(skillIssues);
       const [totalPRs] = await db.select({ count: count() }).from(skillPullRequests);
       const [todayComments] = await db.select({ count: count() }).from(skillComments).where(gte(skillComments.createdAt, todayStart));
+      const [totalDownloads] = await db.select({ sum: sql<number>`coalesce(sum(downloads), 0)` }).from(skills);
+      const [todayInstalls] = await db.select({ count: count() }).from(skillActivities)
+        .where(and(
+          or(eq(skillActivities.action, "install"), eq(skillActivities.action, "download")),
+          gte(skillActivities.createdAt, todayStart)
+        ));
+      const [weekInstalls] = await db.select({ count: count() }).from(skillActivities)
+        .where(and(
+          or(eq(skillActivities.action, "install"), eq(skillActivities.action, "download")),
+          gte(skillActivities.createdAt, weekAgo)
+        ));
 
       res.json({
         totalUsers: totalUsers.count,
@@ -46,6 +57,9 @@ export function registerAdminRoutes(app: Express) {
         todayComments: todayComments.count,
         totalIssues: totalIssues.count,
         totalPRs: totalPRs.count,
+        totalDownloads: Number(totalDownloads.sum),
+        todayInstalls: todayInstalls.count,
+        weekInstalls: weekInstalls.count,
       });
     } catch (error) {
       console.error("Admin stats error:", error);
@@ -220,6 +234,42 @@ export function registerAdminRoutes(app: Express) {
           ownerHandle: i.ownerHandle,
           state: i.state,
           number: i.number,
+          link: `/skills/${i.ownerHandle}/${i.skillSlug}`,
+        })));
+      }
+
+      if (shouldInclude("installs")) {
+        const installs = await db.select({
+          id: skillActivities.id,
+          action: skillActivities.action,
+          details: skillActivities.details,
+          createdAt: skillActivities.createdAt,
+          userId: skillActivities.userId,
+          skillId: skillActivities.skillId,
+          userName: users.handle,
+          userEmail: users.email,
+          skillName: skills.name,
+          skillSlug: skills.slug,
+          ownerHandle: sql<string>`(SELECT handle FROM users WHERE id = ${skills.ownerId})`,
+        })
+        .from(skillActivities)
+        .leftJoin(users, eq(skillActivities.userId, users.id))
+        .leftJoin(skills, eq(skillActivities.skillId, skills.id))
+        .where(or(eq(skillActivities.action, "install"), eq(skillActivities.action, "download")))
+        .orderBy(desc(skillActivities.createdAt))
+        .limit(limitNum);
+
+        events.push(...installs.map(i => ({
+          type: "install",
+          id: i.id,
+          content: `${i.action === "install" ? "Installed" : "Downloaded"} ${i.skillName || "skill"}${i.details?.version ? ` v${i.details.version}` : ""}${i.details?.format ? ` (${i.details.format})` : ""}`,
+          createdAt: i.createdAt,
+          userId: i.userId,
+          userName: i.userName || i.userEmail?.split("@")[0] || "Anonymous",
+          skillId: i.skillId,
+          skillName: i.skillName,
+          skillSlug: i.skillSlug,
+          ownerHandle: i.ownerHandle,
           link: `/skills/${i.ownerHandle}/${i.skillSlug}`,
         })));
       }

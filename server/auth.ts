@@ -407,6 +407,151 @@ export function setupAuthRoutes(app: Express) {
     }
   });
 
+  // GitHub OAuth - redirect to GitHub
+  app.get("/api/auth/github", (req: Request, res: Response) => {
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ message: "GitHub OAuth not configured" });
+    }
+
+    const baseUrl = getBaseUrl(req);
+    const redirectUri = `${baseUrl}/api/auth/github/callback`;
+    const scope = "user:email";
+    const state = generateToken();
+
+    (req.session as any).oauthState = state;
+
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
+
+    req.session.save((err) => {
+      if (err) {
+        console.error("Failed to save GitHub OAuth state to session:", err);
+        return res.status(500).json({ message: "Session error" });
+      }
+      res.redirect(authUrl);
+    });
+  });
+
+  // GitHub OAuth callback
+  app.get("/api/auth/github/callback", async (req: Request, res: Response) => {
+    try {
+      const { code, state } = req.query;
+      const sessionState = (req.session as any).oauthState;
+
+      if (!code || state !== sessionState) {
+        console.error("GitHub OAuth state mismatch");
+        return res.redirect("/?error=auth_failed");
+      }
+
+      const clientId = process.env.GITHUB_CLIENT_ID;
+      const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+      const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code: code as string,
+        }),
+      });
+
+      const tokens = await tokenResponse.json();
+      if (!tokens.access_token) {
+        console.error("GitHub token exchange failed:", JSON.stringify(tokens));
+        return res.redirect("/?error=auth_failed");
+      }
+
+      const userResponse = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+          "Accept": "application/json",
+        },
+      });
+      const githubUser = await userResponse.json();
+
+      let email = githubUser.email;
+      if (!email) {
+        const emailsResponse = await fetch("https://api.github.com/user/emails", {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
+            "Accept": "application/json",
+          },
+        });
+        const emails = await emailsResponse.json();
+        const primary = emails.find((e: any) => e.primary && e.verified);
+        email = primary?.email || emails[0]?.email;
+      }
+
+      if (!email) {
+        return res.redirect("/?error=no_email");
+      }
+
+      const githubId = String(githubUser.id);
+
+      const [existingIdentity] = await db.select()
+        .from(authIdentities)
+        .where(and(eq(authIdentities.provider, "github"), eq(authIdentities.providerUserId, githubId)))
+        .limit(1);
+
+      let userId: string;
+
+      if (existingIdentity) {
+        userId = existingIdentity.userId;
+      } else {
+        const [existingUser] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+
+        if (existingUser) {
+          await db.insert(authIdentities).values({
+            userId: existingUser.id,
+            provider: "github",
+            providerUserId: githubId,
+            providerData: githubUser,
+          });
+          userId = existingUser.id;
+        } else {
+          const handle = (githubUser.login || email.split("@")[0]).toLowerCase().replace(/[^a-z0-9_-]/g, "") || `user${Date.now()}`;
+          const nameParts = (githubUser.name || "").split(" ");
+
+          const [newUser] = await db.insert(users).values({
+            email: email.toLowerCase(),
+            firstName: nameParts[0] || null,
+            lastName: nameParts.slice(1).join(" ") || null,
+            profileImageUrl: githubUser.avatar_url,
+            handle,
+            emailVerified: true,
+          }).returning();
+
+          await db.insert(authIdentities).values({
+            userId: newUser.id,
+            provider: "github",
+            providerUserId: githubId,
+            providerData: githubUser,
+          });
+
+          userId = newUser.id;
+        }
+      }
+
+      (req.session as any).userId = userId;
+      delete (req.session as any).oauthState;
+
+      req.session.save((err) => {
+        if (err) {
+          console.error("GitHub session save error:", err);
+          return res.redirect("/?error=auth_failed");
+        }
+        res.redirect("/");
+      });
+    } catch (error) {
+      console.error("GitHub OAuth error:", error);
+      res.redirect("/?error=auth_failed");
+    }
+  });
+
   // Update OpenAI API key
   app.put("/api/auth/openai-key", isAuthenticated, async (req: Request, res: Response) => {
     try {

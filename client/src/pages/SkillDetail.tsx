@@ -108,9 +108,12 @@ export default function SkillDetail() {
 
   const latestVersion = skill.versions?.[0];
   const latestValidation = latestVersion?.validations?.[0];
-  const ownerName = skill.owner?.firstName 
-    ? `${skill.owner.firstName} ${skill.owner.lastName || ""}`.trim()
-    : skill.owner?.handle || "Unknown";
+  const isOfficial = skill.owner?.handle === "skillhub";
+  const ownerName = isOfficial
+    ? "SkillHub"
+    : skill.owner?.firstName 
+      ? `${skill.owner.firstName} ${skill.owner.lastName || ""}`.trim()
+      : skill.owner?.handle || "Unknown";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

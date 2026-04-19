@@ -1,7 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { db } from "./db.js";
-import { skills, skillVersions, skillValidations, skillStars, skillActivities, skillComments, skillIssues, issueComments, skillPullRequests, prComments, users, apiTokens, skillFiles } from "../shared/schema.js";
-import { eq, desc, and, ilike, sql, or } from "drizzle-orm";
+import { supabase } from "./db.js";
 import { isAuthenticated, getCurrentUser } from "./auth.js";
 import multer from "multer";
 import matter from "gray-matter";
@@ -23,24 +21,32 @@ async function authenticateToken(req: Request, res: Response, next: NextFunction
   }
   
   const token = authHeader.slice(7);
-  const [tokenRecord] = await db.select()
-    .from(apiTokens)
-    .where(and(eq(apiTokens.token, token), eq(apiTokens.isRevoked, false)))
-    .limit(1);
+  const { data: tokenRecord } = await supabase
+    .from('api_tokens')
+    .select('*')
+    .eq('token', token)
+    .eq('is_revoked', false)
+    .maybeSingle();
   
   if (!tokenRecord) {
     return res.status(401).json({ message: "Invalid or revoked token" });
   }
   
-  if (tokenRecord.expiresAt && new Date(tokenRecord.expiresAt) < new Date()) {
+  if (tokenRecord.expires_at && new Date(tokenRecord.expires_at) < new Date()) {
     return res.status(401).json({ message: "Token expired" });
   }
   
-  await db.update(apiTokens)
-    .set({ lastUsedAt: new Date() })
-    .where(eq(apiTokens.id, tokenRecord.id));
+  await supabase
+    .from('api_tokens')
+    .update({ last_used_at: new Date().toISOString() })
+    .eq('id', tokenRecord.id);
   
-  const [user] = await db.select().from(users).where(eq(users.id, tokenRecord.userId)).limit(1);
+  const { data: user } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', tokenRecord.user_id)
+    .maybeSingle();
+
   (req as any).tokenUser = user;
   (req as any).tokenScopes = tokenRecord.scopes;
   next();
@@ -64,9 +70,9 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 async function logActivity(skillId: string, userId: string | null, action: string, details?: Record<string, any>) {
   try {
-    await db.insert(skillActivities).values({
-      skillId,
-      userId,
+    await supabase.from('skill_activities').insert({
+      skill_id: skillId,
+      user_id: userId,
       action,
       details,
     });
@@ -79,68 +85,60 @@ export function registerRoutes(app: Express) {
   app.get("/api/skills", async (req: Request, res: Response) => {
     try {
       const { search, tag, verified, sort = "latest", limit = "20", offset = "0", paginated } = req.query;
-      
-      const conditions: any[] = [eq(skills.isPublic, true)];
-      
+      const limitNum = parseInt(limit as string);
+      const offsetNum = parseInt(offset as string);
+
+      let query = supabase
+        .from('skills_with_score')
+        .select('*', paginated === "true" ? { count: 'exact' } : {})
+        .eq('is_public', true);
+
       if (search) {
-        conditions.push(
-          or(
-            ilike(skills.name, `%${search}%`),
-            ilike(skills.description, `%${search}%`)
-          )
-        );
+        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
       }
 
       if (verified === "true") {
-        conditions.push(eq(skills.isVerified, true));
+        query = query.eq('is_verified', true);
       }
 
-      const orderBy = sort === "stars" ? desc(skills.stars) 
-        : sort === "downloads" ? desc(skills.downloads) 
-        : desc(skills.createdAt);
-      
-      const result = await db.select({
-        id: skills.id,
-        name: skills.name,
-        slug: skills.slug,
-        description: skills.description,
-        isVerified: skills.isVerified,
-        stars: skills.stars,
-        downloads: skills.downloads,
-        tags: skills.tags,
-        createdAt: skills.createdAt,
-        validationScore: sql<number | null>`(
-          SELECT sv.score FROM skill_validations sv
-          JOIN skill_versions svv ON sv.version_id = svv.id
-          WHERE svv.skill_id = ${skills.id}
-          ORDER BY svv.published_at DESC NULLS LAST LIMIT 1
-        )`.as("validation_score"),
-        owner: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          handle: users.handle,
-          profileImageUrl: users.profileImageUrl,
-        },
-      })
-      .from(skills)
-      .leftJoin(users, eq(skills.ownerId, users.id))
-      .where(and(...conditions))
-      .orderBy(orderBy)
-      .limit(parseInt(limit as string))
-      .offset(parseInt(offset as string));
+      if (sort === "stars") {
+        query = query.order('stars', { ascending: false });
+      } else if (sort === "downloads") {
+        query = query.order('downloads', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
 
-      // Return paginated response with total count if requested
+      query = query.range(offsetNum, offsetNum + limitNum - 1);
+
+      const { data, count } = await query;
+
+      const result = (data || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        description: s.description,
+        isVerified: s.is_verified,
+        stars: s.stars,
+        downloads: s.downloads,
+        tags: s.tags,
+        createdAt: s.created_at,
+        validationScore: s.validation_score,
+        owner: {
+          id: s.owner_user_id,
+          firstName: s.owner_first_name,
+          lastName: s.owner_last_name,
+          handle: s.owner_handle,
+          profileImageUrl: s.owner_profile_image_url,
+        },
+      }));
+
       if (paginated === "true") {
-        const [countResult] = await db.select({ count: sql<number>`count(*)` })
-          .from(skills)
-          .where(and(...conditions));
-        
         res.json({
           skills: result,
-          total: Number(countResult.count),
-          limit: parseInt(limit as string),
-          offset: parseInt(offset as string),
+          total: count || 0,
+          limit: limitNum,
+          offset: offsetNum,
         });
       } else {
         res.json(result);
@@ -162,8 +160,14 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       if (!userId) return res.json({ starred: false });
       
-      const existing = await db.select().from(skillStars).where(and(eq(skillStars.skillId, skillId), eq(skillStars.userId, userId))).limit(1);
-      res.json({ starred: existing.length > 0 });
+      const { data: existing } = await supabase
+        .from('skill_stars')
+        .select('id')
+        .eq('skill_id', skillId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      res.json({ starred: !!existing });
     } catch (error) {
       res.json({ starred: false });
     }
@@ -174,25 +178,14 @@ export function registerRoutes(app: Express) {
       const skillId = req.params.skillId as string;
       const limit = parseInt(req.query.limit as string) || 20;
       
-      const activities = await db.select({
-        id: skillActivities.id,
-        action: skillActivities.action,
-        details: skillActivities.details,
-        createdAt: skillActivities.createdAt,
-        user: {
-          firstName: users.firstName,
-          lastName: users.lastName,
-          handle: users.handle,
-          profileImageUrl: users.profileImageUrl,
-        },
-      })
-        .from(skillActivities)
-        .leftJoin(users, eq(skillActivities.userId, users.id))
-        .where(eq(skillActivities.skillId, skillId))
-        .orderBy(desc(skillActivities.createdAt))
+      const { data: activities } = await supabase
+        .from('skill_activities')
+        .select('id, action, details, created_at, user:users!user_id(first_name, last_name, handle, profile_image_url)')
+        .eq('skill_id', skillId)
+        .order('created_at', { ascending: false })
         .limit(limit);
       
-      res.json(activities);
+      res.json(activities || []);
     } catch (error) {
       res.json([]);
     }
@@ -202,26 +195,13 @@ export function registerRoutes(app: Express) {
     try {
       const skillId = req.params.skillId as string;
       
-      const comments = await db.select({
-        id: skillComments.id,
-        content: skillComments.content,
-        parentId: skillComments.parentId,
-        isEdited: skillComments.isEdited,
-        createdAt: skillComments.createdAt,
-        user: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          handle: users.handle,
-          profileImageUrl: users.profileImageUrl,
-        },
-      })
-        .from(skillComments)
-        .leftJoin(users, eq(skillComments.userId, users.id))
-        .where(eq(skillComments.skillId, skillId))
-        .orderBy(desc(skillComments.createdAt));
+      const { data: comments } = await supabase
+        .from('skill_comments')
+        .select('id, content, parent_id, is_edited, created_at, user:users!user_id(id, first_name, last_name, handle, profile_image_url)')
+        .eq('skill_id', skillId)
+        .order('created_at', { ascending: false });
       
-      res.json(comments);
+      res.json(comments || []);
     } catch (error) {
       res.json([]);
     }
@@ -232,15 +212,18 @@ export function registerRoutes(app: Express) {
       const skillId = req.params.skillId as string;
       const { state = "open" } = req.query;
       
-      const prs = await db.query.skillPullRequests.findMany({
-        where: state === "all" 
-          ? eq(skillPullRequests.skillId, skillId)
-          : and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.state, state as string)),
-        with: { author: true },
-        orderBy: [desc(skillPullRequests.createdAt)],
-      });
+      let query = supabase
+        .from('skill_pull_requests')
+        .select('*, author:users!author_id(*)')
+        .eq('skill_id', skillId);
+
+      if (state !== "all") {
+        query = query.eq('state', state as string);
+      }
+
+      const { data: prs } = await query.order('created_at', { ascending: false });
       
-      res.json(prs);
+      res.json(prs || []);
     } catch (error) {
       res.json([]);
     }
@@ -251,15 +234,18 @@ export function registerRoutes(app: Express) {
       const skillId = req.params.skillId as string;
       const { state = "open" } = req.query;
       
-      const issues = await db.query.skillIssues.findMany({
-        where: state === "all" 
-          ? eq(skillIssues.skillId, skillId)
-          : and(eq(skillIssues.skillId, skillId), eq(skillIssues.state, state as string)),
-        with: { author: true },
-        orderBy: [desc(skillIssues.createdAt)],
-      });
+      let query = supabase
+        .from('skill_issues')
+        .select('*, author:users!author_id(*)')
+        .eq('skill_id', skillId);
+
+      if (state !== "all") {
+        query = query.eq('state', state as string);
+      }
+
+      const { data: issues } = await query.order('created_at', { ascending: false });
       
-      res.json(issues);
+      res.json(issues || []);
     } catch (error) {
       res.json([]);
     }
@@ -271,11 +257,16 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       const skillId = req.params.skillId as string;
       
-      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('id', skillId)
+        .maybeSingle();
+
       if (!skill) return res.status(404).json({ message: "Skill not found" });
-      if (skill.ownerId !== userId) return res.status(403).json({ message: "Not authorized to delete this skill" });
+      if (skill.owner_id !== userId) return res.status(403).json({ message: "Not authorized to delete this skill" });
       
-      await db.delete(skills).where(eq(skills.id, skillId));
+      await supabase.from('skills').delete().eq('id', skillId);
       res.json({ message: "Skill deleted successfully" });
     } catch (error) {
       console.error("Delete skill error:", error);
@@ -288,17 +279,19 @@ export function registerRoutes(app: Express) {
     try {
       const skillId = req.params.skillId as string;
       
-      const [latestVersion] = await db.select()
-        .from(skillVersions)
-        .where(and(eq(skillVersions.skillId, skillId), eq(skillVersions.isLatest, true)))
-        .limit(1);
+      const { data: latestVersion } = await supabase
+        .from('skill_versions')
+        .select('*')
+        .eq('skill_id', skillId)
+        .eq('is_latest', true)
+        .maybeSingle();
       
       if (!latestVersion) {
         return res.status(404).json({ message: "No version found for this skill" });
       }
       
       let manifest: Record<string, any> = {};
-      const fmMatch = latestVersion.skillMd.match(/^---\n([\s\S]*?)\n---/);
+      const fmMatch = latestVersion.skill_md.match(/^---\n([\s\S]*?)\n---/);
       if (fmMatch) {
         try {
           const lines = fmMatch[1].split('\n');
@@ -309,11 +302,11 @@ export function registerRoutes(app: Express) {
         } catch {}
       }
       
-      const validationResult = await validateSkillMd(latestVersion.skillMd, manifest);
+      const validationResult = await validateSkillMd(latestVersion.skill_md, manifest);
       
-      await db.delete(skillValidations).where(eq(skillValidations.versionId, latestVersion.id));
-      await db.insert(skillValidations).values({
-        versionId: latestVersion.id,
+      await supabase.from('skill_validations').delete().eq('version_id', latestVersion.id);
+      await supabase.from('skill_validations').insert({
+        version_id: latestVersion.id,
         status: validationResult.passed ? "passed" : "failed",
         score: validationResult.score,
         checks: validationResult.checks,
@@ -336,68 +329,42 @@ export function registerRoutes(app: Express) {
       const owner = req.params.owner as string;
       const slug = req.params.slug as string;
       
-      const ownerUser = await db.select().from(users).where(
-        or(eq(users.handle, owner), eq(users.id, owner))
-      ).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`handle.eq.${owner},id.eq.${owner}`)
+        .limit(1)
+        .maybeSingle();
       
-      if (!ownerUser.length) {
+      if (!ownerUser) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
-      const skill = await db.select({
-        id: skills.id,
-        name: skills.name,
-        slug: skills.slug,
-        description: skills.description,
-        homepage: skills.homepage,
-        repository: skills.repository,
-        license: skills.license,
-        isPublic: skills.isPublic,
-        isVerified: skills.isVerified,
-        isArchived: skills.isArchived,
-        stars: skills.stars,
-        downloads: skills.downloads,
-        forks: skills.forks,
-        weeklyDownloads: skills.weeklyDownloads,
-        tags: skills.tags,
-        metadata: skills.metadata,
-        dependencies: skills.dependencies,
-        createdAt: skills.createdAt,
-        updatedAt: skills.updatedAt,
-        owner: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          handle: users.handle,
-          profileImageUrl: users.profileImageUrl,
-        },
-      })
-      .from(skills)
-      .leftJoin(users, eq(skills.ownerId, users.id))
-      .where(and(eq(skills.ownerId, ownerUser[0].id), eq(skills.slug, slug)))
-      .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*, owner:users!owner_id(id, first_name, last_name, handle, profile_image_url)')
+        .eq('owner_id', ownerUser.id)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
-      const versions = await db.select()
-        .from(skillVersions)
-        .where(eq(skillVersions.skillId, skill[0].id))
-        .orderBy(desc(skillVersions.publishedAt));
+      const { data: versions } = await supabase
+        .from('skill_versions')
+        .select('*, validations:skill_validations(*)')
+        .eq('skill_id', skill.id)
+        .order('published_at', { ascending: false });
 
-      const versionsWithValidations = await Promise.all(
-        versions.map(async (version) => {
-          const validations = await db.select()
-            .from(skillValidations)
-            .where(eq(skillValidations.versionId, version.id))
-            .orderBy(desc(skillValidations.createdAt))
-            .limit(1);
-          return { ...version, validations };
-        })
-      );
+      const versionsWithValidations = (versions || []).map((v: any) => {
+        const sorted = (v.validations || []).sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        return { ...v, validations: sorted.slice(0, 1) };
+      });
 
-      res.json({ ...skill[0], versions: versionsWithValidations });
+      res.json({ ...skill, versions: versionsWithValidations });
     } catch (error) {
       console.error("Error fetching skill:", error);
       res.status(500).json({ message: "Failed to fetch skill" });
@@ -410,39 +377,44 @@ export function registerRoutes(app: Express) {
       const slug = req.params.slug as string;
       const version = req.params.version as string;
       
-      const ownerUser = await db.select().from(users).where(
-        or(eq(users.handle, owner), eq(users.id, owner))
-      ).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`handle.eq.${owner},id.eq.${owner}`)
+        .limit(1)
+        .maybeSingle();
       
-      if (!ownerUser.length) {
+      if (!ownerUser) {
         return res.status(404).json({ message: "Version not found" });
       }
 
-      const skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, ownerUser[0].id), eq(skills.slug, slug)))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', ownerUser.id)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Version not found" });
       }
 
-      const versionData = await db.select()
-        .from(skillVersions)
-        .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.version, version)))
-        .limit(1);
+      const { data: versionData } = await supabase
+        .from('skill_versions')
+        .select('*, validations:skill_validations(*)')
+        .eq('skill_id', skill.id)
+        .eq('version', version)
+        .maybeSingle();
 
-      if (!versionData.length) {
+      if (!versionData) {
         return res.status(404).json({ message: "Version not found" });
       }
 
-      const validation = await db.select()
-        .from(skillValidations)
-        .where(eq(skillValidations.versionId, versionData[0].id))
-        .orderBy(desc(skillValidations.createdAt))
-        .limit(1);
-
-      res.json({ ...versionData[0], validation: validation[0] || null });
+      const sortedValidations = (versionData.validations || []).sort((a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const { validations, ...rest } = versionData;
+      res.json({ ...rest, validation: sortedValidations[0] || null });
     } catch (error) {
       console.error("Error fetching version:", error);
       res.status(500).json({ message: "Failed to fetch version" });
@@ -456,70 +428,73 @@ export function registerRoutes(app: Express) {
       const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
       const version = req.query.version as string | undefined;
 
-      const ownerUser = await db.select().from(users).where(
-        or(eq(users.handle, owner), eq(users.id, owner))
-      ).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`handle.eq.${owner},id.eq.${owner}`)
+        .limit(1)
+        .maybeSingle();
 
-      if (!ownerUser.length) {
+      if (!ownerUser) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
-      const skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, ownerUser[0].id), eq(skills.slug, slug)))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', ownerUser.id)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
       let versionData;
       if (version) {
-        versionData = await db.select()
-          .from(skillVersions)
-          .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.version, version)))
-          .limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('version', version)
+          .maybeSingle();
+        versionData = data;
       } else {
-        versionData = await db.select()
-          .from(skillVersions)
-          .where(eq(skillVersions.skillId, skill[0].id))
-          .orderBy(desc(skillVersions.publishedAt))
-          .limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .order('published_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        versionData = data;
       }
 
-      if (!versionData.length) {
+      if (!versionData) {
         return res.status(404).json({ message: "Version not found" });
       }
 
-      const files = await db.select({
-        id: skillFiles.id,
-        path: skillFiles.path,
-        size: skillFiles.size,
-        isBinary: skillFiles.isBinary,
-        mimeType: skillFiles.mimeType,
-        sha256: skillFiles.sha256,
-        createdAt: skillFiles.createdAt,
-      })
-        .from(skillFiles)
-        .where(eq(skillFiles.versionId, versionData[0].id))
-        .orderBy(skillFiles.path);
+      const { data: files } = await supabase
+        .from('skill_files')
+        .select('id, path, size, is_binary, mime_type, sha256, created_at')
+        .eq('version_id', versionData.id)
+        .order('path');
 
-      // Also include SKILL.md from the version itself if no files exist
-      const allFiles = files.length > 0 ? files : [{
-        id: versionData[0].id,
+      const allFiles = (files && files.length > 0) ? files : [{
+        id: versionData.id,
         path: "SKILL.md",
-        size: versionData[0].skillMd?.length || 0,
-        isBinary: false,
-        mimeType: "text/markdown",
+        size: versionData.skill_md?.length || 0,
+        is_binary: false,
+        mime_type: "text/markdown",
         sha256: null,
-        createdAt: versionData[0].createdAt,
+        created_at: versionData.created_at,
       }];
 
       res.json({ 
-        version: versionData[0].version, 
+        version: versionData.version, 
         files: allFiles,
         totalFiles: allFiles.length,
-        totalSize: allFiles.reduce((sum, f) => sum + (f.size || 0), 0),
+        totalSize: allFiles.reduce((sum: number, f: any) => sum + (f.size || 0), 0),
       });
     } catch (error) {
       console.error("Error fetching files:", error);
@@ -538,69 +513,81 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "File path required" });
       }
 
-      const ownerUser = await db.select().from(users).where(
-        or(eq(users.handle, owner), eq(users.id, owner))
-      ).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`handle.eq.${owner},id.eq.${owner}`)
+        .limit(1)
+        .maybeSingle();
 
-      if (!ownerUser.length) {
+      if (!ownerUser) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
-      const skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, ownerUser[0].id), eq(skills.slug, slug)))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', ownerUser.id)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
       let versionData;
       if (version) {
-        versionData = await db.select()
-          .from(skillVersions)
-          .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.version, version)))
-          .limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('version', version)
+          .maybeSingle();
+        versionData = data;
       } else {
-        versionData = await db.select()
-          .from(skillVersions)
-          .where(eq(skillVersions.skillId, skill[0].id))
-          .orderBy(desc(skillVersions.publishedAt))
-          .limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .order('published_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        versionData = data;
       }
 
-      if (!versionData.length) {
+      if (!versionData) {
         return res.status(404).json({ message: "Version not found" });
       }
 
-      // Handle SKILL.md specially - it's stored in the version record
       if (filePath === "SKILL.md" || filePath === "skill.md") {
         return res.json({
           path: "SKILL.md",
-          content: versionData[0].skillMd,
-          size: versionData[0].skillMd?.length || 0,
+          content: versionData.skill_md,
+          size: versionData.skill_md?.length || 0,
           isBinary: false,
           mimeType: "text/markdown",
         });
       }
 
-      const file = await db.select()
-        .from(skillFiles)
-        .where(and(eq(skillFiles.versionId, versionData[0].id), eq(skillFiles.path, filePath)))
-        .limit(1);
+      const { data: file } = await supabase
+        .from('skill_files')
+        .select('*')
+        .eq('version_id', versionData.id)
+        .eq('path', filePath)
+        .maybeSingle();
 
-      if (!file.length) {
+      if (!file) {
         return res.status(404).json({ message: "File not found" });
       }
 
       res.json({
-        path: file[0].path,
-        content: file[0].isBinary ? null : file[0].content,
-        binaryContent: file[0].isBinary ? file[0].binaryContent : null,
-        size: file[0].size,
-        isBinary: file[0].isBinary,
-        mimeType: file[0].mimeType,
-        sha256: file[0].sha256,
+        path: file.path,
+        content: file.is_binary ? null : file.content,
+        binaryContent: file.is_binary ? file.binary_content : null,
+        size: file.size,
+        isBinary: file.is_binary,
+        mimeType: file.mime_type,
+        sha256: file.sha256,
       });
     } catch (error) {
       console.error("Error fetching file:", error);
@@ -618,21 +605,24 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Files array is required" });
       }
 
-      const skill = await db.select()
-        .from(skills)
-        .where(eq(skills.id, skillId))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('id', skillId)
+        .maybeSingle();
 
-      if (!skill.length || skill[0].ownerId !== userId) {
+      if (!skill || skill.owner_id !== userId) {
         return res.status(403).json({ message: "Not authorized" });
       }
 
-      const version = await db.select()
-        .from(skillVersions)
-        .where(and(eq(skillVersions.id, versionId), eq(skillVersions.skillId, skillId)))
-        .limit(1);
+      const { data: versionRecord } = await supabase
+        .from('skill_versions')
+        .select('*')
+        .eq('id', versionId)
+        .eq('skill_id', skillId)
+        .maybeSingle();
 
-      if (!version.length) {
+      if (!versionRecord) {
         return res.status(404).json({ message: "Version not found" });
       }
 
@@ -648,22 +638,20 @@ export function registerRoutes(app: Express) {
         const size = isBinary ? (file.binaryContent?.length || 0) : (file.content?.length || 0);
         const sha256Hash = crypto.createHash("sha256").update(file.content || file.binaryContent || "").digest("hex");
 
-        const [inserted] = await db.insert(skillFiles)
-          .values({
-            versionId,
+        const { data: inserted } = await supabase
+          .from('skill_files')
+          .upsert({
+            version_id: versionId,
             path: file.path,
             content,
-            binaryContent,
-            isBinary,
+            binary_content: binaryContent,
+            is_binary: isBinary,
             size,
             sha256: sha256Hash,
-            mimeType: file.mimeType || getMimeType(file.path),
-          })
-          .onConflictDoUpdate({
-            target: [skillFiles.versionId, skillFiles.path],
-            set: { content, binaryContent, isBinary, size, sha256: sha256Hash, mimeType: file.mimeType || getMimeType(file.path) },
-          })
-          .returning();
+            mime_type: file.mimeType || getMimeType(file.path),
+          }, { onConflict: 'version_id,path' })
+          .select()
+          .single();
 
         insertedFiles.push(inserted);
       }
@@ -731,18 +719,22 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Description must be 500 characters or less" });
       }
 
-      const existing = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, userId), eq(skills.slug, slug)))
-        .limit(1);
+      const { data: existing } = await supabase
+        .from('skills')
+        .select('id')
+        .eq('owner_id', userId)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (existing.length) {
+      if (existing) {
         return res.status(409).json({ message: "A skill with this slug already exists" });
       }
 
-      const [skill] = await db.insert(skills)
-        .values({ ownerId: userId, name, slug, description, isPublic, tags })
-        .returning();
+      const { data: skill } = await supabase
+        .from('skills')
+        .insert({ owner_id: userId, name, slug, description, is_public: isPublic, tags })
+        .select()
+        .single();
 
       res.status(201).json(skill);
     } catch (error) {
@@ -757,12 +749,14 @@ export function registerRoutes(app: Express) {
       const { skillId } = req.params;
       const { version, skillMd, readme, changelog, files } = req.body;
 
-      const skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.id, skillId), eq(skills.ownerId, userId)))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('id', skillId)
+        .eq('owner_id', userId)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
@@ -770,74 +764,76 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Version and SKILL.md content are required" });
       }
 
-      const existingVersion = await db.select()
-        .from(skillVersions)
-        .where(and(eq(skillVersions.skillId, skillId), eq(skillVersions.version, version)))
-        .limit(1);
+      const { data: existingVersion } = await supabase
+        .from('skill_versions')
+        .select('id')
+        .eq('skill_id', skillId)
+        .eq('version', version)
+        .maybeSingle();
 
-      if (existingVersion.length) {
+      if (existingVersion) {
         return res.status(409).json({ message: "This version already exists" });
       }
 
       const parsed = matter(skillMd);
       const manifest = parsed.data as Record<string, any>;
 
-      await db.update(skillVersions)
-        .set({ isLatest: false })
-        .where(eq(skillVersions.skillId, skillId));
+      await supabase
+        .from('skill_versions')
+        .update({ is_latest: false })
+        .eq('skill_id', skillId);
 
-      const [newVersion] = await db.insert(skillVersions)
-        .values({
-          skillId,
+      const { data: newVersion } = await supabase
+        .from('skill_versions')
+        .insert({
+          skill_id: skillId,
           version,
-          skillMd,
+          skill_md: skillMd,
           manifest,
           readme,
           changelog,
-          isLatest: true,
+          is_latest: true,
         })
-        .returning();
+        .select()
+        .single();
 
       if (manifest.name) {
-        await db.update(skills)
-          .set({ name: manifest.name, description: manifest.description, updatedAt: new Date() })
-          .where(eq(skills.id, skillId));
+        await supabase
+          .from('skills')
+          .update({ name: manifest.name, description: manifest.description, updated_at: new Date().toISOString() })
+          .eq('id', skillId);
       }
 
       const validationResult = await validateSkillMd(skillMd, manifest);
       
-      await db.insert(skillValidations).values({
-        versionId: newVersion.id,
+      await supabase.from('skill_validations').insert({
+        version_id: newVersion.id,
         status: validationResult.passed ? "passed" : "failed",
         score: validationResult.score,
         checks: validationResult.checks,
-        startedAt: new Date(),
-        finishedAt: new Date(),
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
       });
 
-      // Insert additional files if provided (with path validation)
       if (files && Array.isArray(files)) {
         for (const file of files) {
           if (file.path && file.content && file.path !== "SKILL.md" && isValidFilePath(file.path)) {
             const content = file.content;
             const size = Buffer.byteLength(content, 'utf8');
-            if (size > 1024 * 1024) continue; // Skip files > 1MB
+            if (size > 1024 * 1024) continue;
             const ext = file.path.split('.').pop()?.toLowerCase() || '';
             const mimeType = getMimeType(ext);
             
-            await db.insert(skillFiles)
-              .values({
-                versionId: newVersion.id,
+            await supabase
+              .from('skill_files')
+              .upsert({
+                version_id: newVersion.id,
                 path: file.path,
                 content,
                 size,
-                mimeType,
-                isBinary: false,
-              })
-              .onConflictDoUpdate({
-                target: [skillFiles.versionId, skillFiles.path],
-                set: { content, size, mimeType },
-              });
+                mime_type: mimeType,
+                is_binary: false,
+              }, { onConflict: 'version_id,path' });
           }
         }
       }
@@ -854,25 +850,22 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
 
-      const existing = await db.select()
-        .from(skillStars)
-        .where(and(eq(skillStars.skillId, skillId), eq(skillStars.userId, userId)))
-        .limit(1);
+      const { data: existing } = await supabase
+        .from('skill_stars')
+        .select('id')
+        .eq('skill_id', skillId)
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (existing.length) {
-        await db.delete(skillStars)
-          .where(and(eq(skillStars.skillId, skillId), eq(skillStars.userId, userId)));
-        await db.update(skills)
-          .set({ stars: sql`${skills.stars} - 1` })
-          .where(eq(skills.id, skillId));
+      if (existing) {
+        await supabase.from('skill_stars').delete().eq('skill_id', skillId).eq('user_id', userId);
+        await supabase.rpc('decrement_skill_stars', { p_skill_id: skillId });
         logActivity(skillId, userId, "unstar");
         return res.json({ starred: false });
       }
 
-      await db.insert(skillStars).values({ skillId, userId });
-      await db.update(skills)
-        .set({ stars: sql`${skills.stars} + 1` })
-        .where(eq(skills.id, skillId));
+      await supabase.from('skill_stars').insert({ skill_id: skillId, user_id: userId });
+      await supabase.rpc('increment_skill_stars', { p_skill_id: skillId });
       logActivity(skillId, userId, "star");
 
       res.json({ starred: true });
@@ -886,37 +879,35 @@ export function registerRoutes(app: Express) {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       
-      const result = await db.select({
-        id: skills.id,
-        name: skills.name,
-        slug: skills.slug,
-        description: skills.description,
-        isVerified: skills.isVerified,
-        stars: skills.stars,
-        downloads: skills.downloads,
-        weeklyDownloads: skills.weeklyDownloads,
-        tags: skills.tags,
-        license: skills.license,
-        createdAt: skills.createdAt,
-        validationScore: sql<number | null>`(
-          SELECT sv.score FROM skill_validations sv
-          JOIN skill_versions svv ON sv.version_id = svv.id
-          WHERE svv.skill_id = ${skills.id}
-          ORDER BY svv.published_at DESC NULLS LAST LIMIT 1
-        )`.as("validation_score"),
-        owner: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          handle: users.handle,
-          profileImageUrl: users.profileImageUrl,
-        },
-      })
-        .from(skills)
-        .leftJoin(users, eq(skills.ownerId, users.id))
-        .where(and(eq(skills.isPublic, true), eq(skills.isArchived, false)))
-        .orderBy(desc(sql`(${skills.weeklyDownloads} * 3 + ${skills.stars} * 2 + ${skills.downloads})`))
+      const { data } = await supabase
+        .from('skills_trending')
+        .select('*')
+        .eq('is_public', true)
+        .eq('is_archived', false)
+        .order('trending_score', { ascending: false })
         .limit(limit);
+
+      const result = (data || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        description: s.description,
+        isVerified: s.is_verified,
+        stars: s.stars,
+        downloads: s.downloads,
+        weeklyDownloads: s.weekly_downloads,
+        tags: s.tags,
+        license: s.license,
+        createdAt: s.created_at,
+        validationScore: s.validation_score,
+        owner: {
+          id: s.owner_user_id,
+          firstName: s.owner_first_name,
+          lastName: s.owner_last_name,
+          handle: s.owner_handle,
+          profileImageUrl: s.owner_profile_image_url,
+        },
+      }));
 
       res.json(result);
     } catch (error) {
@@ -930,12 +921,14 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
 
-      const existing = await db.select()
-        .from(skillStars)
-        .where(and(eq(skillStars.skillId, skillId), eq(skillStars.userId, userId)))
-        .limit(1);
+      const { data: existing } = await supabase
+        .from('skill_stars')
+        .select('id')
+        .eq('skill_id', skillId)
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      res.json({ starred: existing.length > 0 });
+      res.json({ starred: !!existing });
     } catch (error) {
       res.status(500).json({ message: "Failed to check star status" });
     }
@@ -946,25 +939,14 @@ export function registerRoutes(app: Express) {
       const skillId = req.params.skillId as string;
       const limit = parseInt(req.query.limit as string) || 20;
       
-      const activities = await db.select({
-        id: skillActivities.id,
-        action: skillActivities.action,
-        details: skillActivities.details,
-        createdAt: skillActivities.createdAt,
-        user: {
-          firstName: users.firstName,
-          lastName: users.lastName,
-          handle: users.handle,
-          profileImageUrl: users.profileImageUrl,
-        },
-      })
-        .from(skillActivities)
-        .leftJoin(users, eq(skillActivities.userId, users.id))
-        .where(eq(skillActivities.skillId, skillId))
-        .orderBy(desc(skillActivities.createdAt))
+      const { data: activities } = await supabase
+        .from('skill_activities')
+        .select('id, action, details, created_at, user:users!user_id(first_name, last_name, handle, profile_image_url)')
+        .eq('skill_id', skillId)
+        .order('created_at', { ascending: false })
         .limit(limit);
       
-      res.json(activities);
+      res.json(activities || []);
     } catch (error) {
       console.error("Error fetching skill activity:", error);
       res.status(500).json({ message: "Failed to fetch activity" });
@@ -975,26 +957,13 @@ export function registerRoutes(app: Express) {
     try {
       const skillId = req.params.skillId as string;
       
-      const comments = await db.select({
-        id: skillComments.id,
-        content: skillComments.content,
-        parentId: skillComments.parentId,
-        isEdited: skillComments.isEdited,
-        createdAt: skillComments.createdAt,
-        user: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          handle: users.handle,
-          profileImageUrl: users.profileImageUrl,
-        },
-      })
-        .from(skillComments)
-        .leftJoin(users, eq(skillComments.userId, users.id))
-        .where(eq(skillComments.skillId, skillId))
-        .orderBy(desc(skillComments.createdAt));
+      const { data: comments } = await supabase
+        .from('skill_comments')
+        .select('id, content, parent_id, is_edited, created_at, user:users!user_id(id, first_name, last_name, handle, profile_image_url)')
+        .eq('skill_id', skillId)
+        .order('created_at', { ascending: false });
       
-      res.json(comments);
+      res.json(comments || []);
     } catch (error) {
       console.error("Error fetching comments:", error);
       res.status(500).json({ message: "Failed to fetch comments" });
@@ -1015,17 +984,18 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Comment is too long (max 2000 characters)" });
       }
 
-      const [comment] = await db.insert(skillComments)
-        .values({ skillId, userId, content: content.trim(), parentId: parentId || null })
-        .returning();
+      const { data: comment } = await supabase
+        .from('skill_comments')
+        .insert({ skill_id: skillId, user_id: userId, content: content.trim(), parent_id: parentId || null })
+        .select()
+        .single();
 
-      await db.insert(skillActivities)
-        .values({
-          skillId,
-          userId,
-          action: "comment",
-          details: { commentId: comment.id },
-        });
+      await supabase.from('skill_activities').insert({
+        skill_id: skillId,
+        user_id: userId,
+        action: "comment",
+        details: { commentId: comment.id },
+      });
 
       res.status(201).json(comment);
     } catch (error) {
@@ -1039,20 +1009,21 @@ export function registerRoutes(app: Express) {
       const commentId = req.params.commentId as string;
       const userId = (req.session as any)?.userId;
 
-      const [comment] = await db.select()
-        .from(skillComments)
-        .where(eq(skillComments.id, commentId))
-        .limit(1);
+      const { data: comment } = await supabase
+        .from('skill_comments')
+        .select('*')
+        .eq('id', commentId)
+        .maybeSingle();
 
       if (!comment) {
         return res.status(404).json({ message: "Comment not found" });
       }
 
-      if (comment.userId !== userId) {
+      if (comment.user_id !== userId) {
         return res.status(403).json({ message: "You can only delete your own comments" });
       }
 
-      await db.delete(skillComments).where(eq(skillComments.id, commentId));
+      await supabase.from('skill_comments').delete().eq('id', commentId);
 
       res.json({ message: "Comment deleted" });
     } catch (error) {
@@ -1065,12 +1036,13 @@ export function registerRoutes(app: Express) {
     try {
       const userId = (req.session as any)?.userId;
       
-      const result = await db.select()
-        .from(skills)
-        .where(eq(skills.ownerId, userId))
-        .orderBy(desc(skills.updatedAt));
+      const { data: result } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', userId)
+        .order('updated_at', { ascending: false });
 
-      res.json(result);
+      res.json(result || []);
     } catch (error) {
       console.error("Error fetching user skills:", error);
       res.status(500).json({ message: "Failed to fetch skills" });
@@ -1082,38 +1054,25 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       const limit = parseInt(req.query.limit as string) || 50;
       
-      const starred = await db.select({
-        id: skills.id,
-        name: skills.name,
-        slug: skills.slug,
-        description: skills.description,
-        stars: skills.stars,
-        downloads: skills.downloads,
-        ownerId: skills.ownerId,
-        isPublic: skills.isPublic,
-        createdAt: skills.createdAt,
-        updatedAt: skills.updatedAt,
-        ownerHandle: users.handle,
-      })
-        .from(skillStars)
-        .innerJoin(skills, eq(skillStars.skillId, skills.id))
-        .innerJoin(users, eq(skills.ownerId, users.id))
-        .where(eq(skillStars.userId, userId))
-        .orderBy(desc(skillStars.createdAt))
+      const { data: starred } = await supabase
+        .from('skill_stars')
+        .select('created_at, skill:skills!skill_id(id, name, slug, description, stars, downloads, owner_id, is_public, created_at, updated_at, owner:users!owner_id(id, handle))')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
         .limit(limit);
 
-      const result = starred.map(skill => ({
-        id: skill.id,
-        name: skill.name,
-        slug: skill.slug,
-        description: skill.description,
-        stars: skill.stars,
-        downloads: skill.downloads,
-        ownerId: skill.ownerId,
-        isPublic: skill.isPublic,
-        createdAt: skill.createdAt,
-        updatedAt: skill.updatedAt,
-        owner: { id: skill.ownerId, handle: skill.ownerHandle },
+      const result = (starred || []).map((s: any) => ({
+        id: s.skill.id,
+        name: s.skill.name,
+        slug: s.skill.slug,
+        description: s.skill.description,
+        stars: s.skill.stars,
+        downloads: s.skill.downloads,
+        ownerId: s.skill.owner_id,
+        isPublic: s.skill.is_public,
+        createdAt: s.skill.created_at,
+        updatedAt: s.skill.updated_at,
+        owner: { id: s.skill.owner_id, handle: s.skill.owner?.handle },
       }));
 
       res.json(result);
@@ -1129,19 +1088,23 @@ export function registerRoutes(app: Express) {
       const { skillId } = req.params;
       const { name, description, isPublic, tags, homepage } = req.body;
 
-      const skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.id, skillId), eq(skills.ownerId, userId)))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('id')
+        .eq('id', skillId)
+        .eq('owner_id', userId)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
-      const [updated] = await db.update(skills)
-        .set({ name, description, isPublic, tags, homepage, updatedAt: new Date() })
-        .where(eq(skills.id, skillId))
-        .returning();
+      const { data: updated } = await supabase
+        .from('skills')
+        .update({ name, description, is_public: isPublic, tags, homepage, updated_at: new Date().toISOString() })
+        .eq('id', skillId)
+        .select()
+        .single();
 
       res.json(updated);
     } catch (error) {
@@ -1155,16 +1118,18 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       const { skillId } = req.params;
 
-      const skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.id, skillId), eq(skills.ownerId, userId)))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('id')
+        .eq('id', skillId)
+        .eq('owner_id', userId)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
-      await db.delete(skills).where(eq(skills.id, skillId));
+      await supabase.from('skills').delete().eq('id', skillId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting skill:", error);
@@ -1176,29 +1141,25 @@ export function registerRoutes(app: Express) {
     try {
       const handle = req.params.handle as string;
       
-      const user = await db.select({
-        id: users.id,
-        handle: users.handle,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        profileImageUrl: users.profileImageUrl,
-        bio: users.bio,
-        createdAt: users.createdAt,
-      })
-      .from(users)
-      .where(or(eq(users.handle, handle), eq(users.id, handle)))
-      .limit(1);
+      const { data: user } = await supabase
+        .from('users')
+        .select('id, handle, first_name, last_name, profile_image_url, bio, created_at')
+        .or(`handle.eq.${handle},id.eq.${handle}`)
+        .limit(1)
+        .maybeSingle();
 
-      if (!user.length) {
+      if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const userSkills = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, user[0].id), eq(skills.isPublic, true)))
-        .orderBy(desc(skills.stars));
+      const { data: userSkills } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', user.id)
+        .eq('is_public', true)
+        .order('stars', { ascending: false });
 
-      res.json({ ...user[0], skills: userSkills });
+      res.json({ ...user, skills: userSkills || [] });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -1216,12 +1177,14 @@ export function registerRoutes(app: Express) {
           return res.status(400).json({ message: "Handle must be 3-30 characters, letters, numbers, underscores, or hyphens only" });
         }
 
-        const existing = await db.select()
-          .from(users)
-          .where(and(eq(users.handle, handle), sql`${users.id} != ${userId}`))
-          .limit(1);
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .eq('handle', handle)
+          .neq('id', userId)
+          .maybeSingle();
         
-        if (existing.length) {
+        if (existing) {
           return res.status(409).json({ message: "Handle already taken" });
         }
       }
@@ -1230,10 +1193,12 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Bio must be 500 characters or less" });
       }
 
-      const [updated] = await db.update(users)
-        .set({ handle, bio, updatedAt: new Date() })
-        .where(eq(users.id, userId))
-        .returning();
+      const { data: updated } = await supabase
+        .from('users')
+        .update({ handle, bio, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .select()
+        .single();
 
       res.json(updated);
     } catch (error) {
@@ -1244,16 +1209,17 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/stats", async (_req: Request, res: Response) => {
     try {
-      const [skillCount] = await db.select({ count: sql<number>`count(*)` }).from(skills);
-      const [userCount] = await db.select({ count: sql<number>`count(*)` }).from(users);
-      const [versionCount] = await db.select({ count: sql<number>`count(*)` }).from(skillVersions);
-      const [downloadSum] = await db.select({ sum: sql<number>`coalesce(sum(downloads), 0)` }).from(skills);
+      const { count: skillCount } = await supabase.from('skills').select('*', { count: 'exact', head: true });
+      const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      const { count: versionCount } = await supabase.from('skill_versions').select('*', { count: 'exact', head: true });
+      const { data: dlData } = await supabase.from('skills').select('downloads');
+      const downloadSum = (dlData || []).reduce((sum: number, s: any) => sum + (s.downloads || 0), 0);
       
       res.json({
-        skills: Number(skillCount.count),
-        users: Number(userCount.count),
-        versions: Number(versionCount.count),
-        downloads: Number(downloadSum.sum),
+        skills: skillCount || 0,
+        users: userCount || 0,
+        versions: versionCount || 0,
+        downloads: downloadSum,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch stats" });
@@ -1267,19 +1233,14 @@ export function registerRoutes(app: Express) {
   app.get("/api/tokens", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = (req.session as any)?.userId;
-      const tokens = await db.select({
-        id: apiTokens.id,
-        name: apiTokens.name,
-        scopes: apiTokens.scopes,
-        lastUsedAt: apiTokens.lastUsedAt,
-        expiresAt: apiTokens.expiresAt,
-        createdAt: apiTokens.createdAt,
-      })
-      .from(apiTokens)
-      .where(and(eq(apiTokens.userId, userId), eq(apiTokens.isRevoked, false)))
-      .orderBy(desc(apiTokens.createdAt));
+      const { data: tokens } = await supabase
+        .from('api_tokens')
+        .select('id, name, scopes, last_used_at, expires_at, created_at')
+        .eq('user_id', userId)
+        .eq('is_revoked', false)
+        .order('created_at', { ascending: false });
 
-      res.json(tokens);
+      res.json(tokens || []);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch tokens" });
     }
@@ -1295,19 +1256,21 @@ export function registerRoutes(app: Express) {
       }
 
       const token = generateToken();
-      const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 24 * 60 * 60 * 1000) : null;
+      const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 24 * 60 * 60 * 1000).toISOString() : null;
 
-      const [created] = await db.insert(apiTokens)
-        .values({ userId, name, token, scopes, expiresAt })
-        .returning();
+      const { data: created } = await supabase
+        .from('api_tokens')
+        .insert({ user_id: userId, name, token, scopes, expires_at: expiresAt })
+        .select()
+        .single();
 
       res.status(201).json({
         id: created.id,
         name: created.name,
         token: created.token,
         scopes: created.scopes,
-        expiresAt: created.expiresAt,
-        createdAt: created.createdAt,
+        expiresAt: created.expires_at,
+        createdAt: created.created_at,
         note: "Store this token securely. You won't be able to see it again.",
       });
     } catch (error) {
@@ -1321,18 +1284,21 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       const { tokenId } = req.params;
 
-      const [token] = await db.select()
-        .from(apiTokens)
-        .where(and(eq(apiTokens.id, tokenId), eq(apiTokens.userId, userId)))
-        .limit(1);
+      const { data: token } = await supabase
+        .from('api_tokens')
+        .select('id')
+        .eq('id', tokenId)
+        .eq('user_id', userId)
+        .maybeSingle();
 
       if (!token) {
         return res.status(404).json({ message: "Token not found" });
       }
 
-      await db.update(apiTokens)
-        .set({ isRevoked: true })
-        .where(eq(apiTokens.id, tokenId));
+      await supabase
+        .from('api_tokens')
+        .update({ is_revoked: true })
+        .eq('id', tokenId);
 
       res.json({ success: true });
     } catch (error) {
@@ -1349,8 +1315,8 @@ export function registerRoutes(app: Express) {
     res.json({
       id: user.id,
       handle: user.handle,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: user.first_name,
+      lastName: user.last_name,
       email: user.email,
     });
   });
@@ -1369,18 +1335,22 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Slug must be lowercase letters, numbers, and hyphens only (max 50 chars)" });
       }
 
-      const existing = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, user.id), eq(skills.slug, slug)))
-        .limit(1);
+      const { data: existing } = await supabase
+        .from('skills')
+        .select('id')
+        .eq('owner_id', user.id)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (existing.length) {
+      if (existing) {
         return res.status(409).json({ message: "A skill with this slug already exists" });
       }
 
-      const [skill] = await db.insert(skills)
-        .values({ ownerId: user.id, name, slug, description, isPublic, tags })
-        .returning();
+      const { data: skill } = await supabase
+        .from('skills')
+        .insert({ owner_id: user.id, name, slug, description, is_public: isPublic, tags })
+        .select()
+        .single();
 
       res.status(201).json(skill);
     } catch (error) {
@@ -1400,107 +1370,115 @@ export function registerRoutes(app: Express) {
         return res.status(403).json({ message: "You can only publish to your own skills" });
       }
 
-      let skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, user.id), eq(skills.slug, slug)))
-        .limit(1);
+      const { data: existingSkill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', user.id)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (!skill.length) {
+      let skill = existingSkill;
+
+      if (!skill) {
         const parsed = matter(skillMd);
         const manifest = parsed.data as Record<string, any>;
-        const [newSkill] = await db.insert(skills)
-          .values({
-            ownerId: user.id,
+        const { data: newSkill } = await supabase
+          .from('skills')
+          .insert({
+            owner_id: user.id,
             name: manifest.name || slug,
             slug,
             description: manifest.description || "",
-            isPublic: true,
+            is_public: true,
             tags: manifest.tags || [],
           })
-          .returning();
-        skill = [newSkill];
+          .select()
+          .single();
+        skill = newSkill;
       }
 
       if (!version || !skillMd) {
         return res.status(400).json({ message: "Version and SKILL.md content are required" });
       }
 
-      const existingVersion = await db.select()
-        .from(skillVersions)
-        .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.version, version)))
-        .limit(1);
+      const { data: existingVersion } = await supabase
+        .from('skill_versions')
+        .select('id')
+        .eq('skill_id', skill.id)
+        .eq('version', version)
+        .maybeSingle();
 
-      if (existingVersion.length) {
+      if (existingVersion) {
         return res.status(409).json({ message: "This version already exists" });
       }
 
       const parsed = matter(skillMd);
       const manifest = parsed.data as Record<string, any>;
 
-      await db.update(skillVersions)
-        .set({ isLatest: false })
-        .where(eq(skillVersions.skillId, skill[0].id));
+      await supabase
+        .from('skill_versions')
+        .update({ is_latest: false })
+        .eq('skill_id', skill.id);
 
-      const [newVersion] = await db.insert(skillVersions)
-        .values({
-          skillId: skill[0].id,
+      const { data: newVersion } = await supabase
+        .from('skill_versions')
+        .insert({
+          skill_id: skill.id,
           version,
-          skillMd,
+          skill_md: skillMd,
           manifest,
           readme,
           changelog,
-          isLatest: true,
+          is_latest: true,
         })
-        .returning();
+        .select()
+        .single();
 
       if (manifest.name) {
-        await db.update(skills)
-          .set({ name: manifest.name, description: manifest.description, updatedAt: new Date() })
-          .where(eq(skills.id, skill[0].id));
+        await supabase
+          .from('skills')
+          .update({ name: manifest.name, description: manifest.description, updated_at: new Date().toISOString() })
+          .eq('id', skill.id);
       }
 
       const validationResult = await validateSkillMd(skillMd, manifest);
       
-      await db.insert(skillValidations).values({
-        versionId: newVersion.id,
+      await supabase.from('skill_validations').insert({
+        version_id: newVersion.id,
         status: validationResult.passed ? "passed" : "failed",
         score: validationResult.score,
         checks: validationResult.checks,
-        startedAt: new Date(),
-        finishedAt: new Date(),
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
       });
 
-      // Insert additional files if provided (with path validation)
       if (files && Array.isArray(files)) {
         for (const file of files) {
           if (file.path && file.content && file.path !== "SKILL.md" && isValidFilePath(file.path)) {
             const content = file.content;
             const size = Buffer.byteLength(content, 'utf8');
-            if (size > 1024 * 1024) continue; // Skip files > 1MB
+            if (size > 1024 * 1024) continue;
             const ext = file.path.split('.').pop()?.toLowerCase() || '';
             const mimeType = getMimeType(ext);
             
-            await db.insert(skillFiles)
-              .values({
-                versionId: newVersion.id,
+            await supabase
+              .from('skill_files')
+              .upsert({
+                version_id: newVersion.id,
                 path: file.path,
                 content,
                 size,
-                mimeType,
-                isBinary: false,
-              })
-              .onConflictDoUpdate({
-                target: [skillFiles.versionId, skillFiles.path],
-                set: { content, size, mimeType },
-              });
+                mime_type: mimeType,
+                is_binary: false,
+              }, { onConflict: 'version_id,path' });
           }
         }
       }
 
-      logActivity(skill[0].id, user.id, "publish", { version: newVersion.version });
+      logActivity(skill.id, user.id, "publish", { version: newVersion.version });
 
       res.status(201).json({
-        skill: { owner: user.handle, slug: skill[0].slug },
+        skill: { owner: user.handle, slug: skill.slug },
         version: newVersion.version,
         validation: validationResult,
         filesCount: (files?.length || 0) + 1,
@@ -1586,12 +1564,15 @@ export function registerRoutes(app: Express) {
     res.json(template);
   });
 
-  // Helper to get user's OpenAI API key
   async function getUserApiKey(req: Request): Promise<string | null> {
     const userId = (req.session as any)?.userId;
     if (!userId) return null;
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    return user?.openaiApiKey || null;
+    const { data: user } = await supabase
+      .from('users')
+      .select('openai_api_key')
+      .eq('id', userId)
+      .maybeSingle();
+    return user?.openai_api_key || null;
   }
 
   // AI-powered Skill Explainer
@@ -1683,69 +1664,72 @@ export function registerRoutes(app: Express) {
       const slug = req.params.slug as string;
       const requestedVersion = req.query.version as string | undefined;
       
-      const ownerUser = await db.select().from(users).where(
-        or(eq(users.handle, owner), eq(users.id, owner))
-      ).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`handle.eq.${owner},id.eq.${owner}`)
+        .limit(1)
+        .maybeSingle();
       
-      if (!ownerUser.length) {
+      if (!ownerUser) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
-      const skill = await db.select()
-        .from(skills)
-        .where(and(eq(skills.ownerId, ownerUser[0].id), eq(skills.slug, slug)))
-        .limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', ownerUser.id)
+        .eq('slug', slug)
+        .maybeSingle();
 
-      if (!skill.length) {
+      if (!skill) {
         return res.status(404).json({ message: "Skill not found" });
       }
 
       let versionData;
       if (requestedVersion && requestedVersion !== "latest") {
-        [versionData] = await db.select()
-          .from(skillVersions)
-          .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.version, requestedVersion as string)))
-          .limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('version', requestedVersion as string)
+          .maybeSingle();
+        versionData = data;
       } else {
-        [versionData] = await db.select()
-          .from(skillVersions)
-          .where(and(eq(skillVersions.skillId, skill[0].id), eq(skillVersions.isLatest, true)))
-          .limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('is_latest', true)
+          .maybeSingle();
+        versionData = data;
       }
 
       if (!versionData) {
         return res.status(404).json({ message: "Version not found" });
       }
 
-      await db.update(skills)
-        .set({ downloads: sql`${skills.downloads} + 1`, weeklyDownloads: sql`${skills.weeklyDownloads} + 1` })
-        .where(eq(skills.id, skill[0].id));
+      await supabase.rpc('increment_skill_downloads', { p_skill_id: skill.id });
+      await supabase.rpc('increment_version_downloads', { p_version_id: versionData.id });
 
-      await db.update(skillVersions)
-        .set({ downloads: sql`${skillVersions.downloads} + 1` })
-        .where(eq(skillVersions.id, versionData.id));
+      logActivity(skill.id, null, "install", { version: versionData.version });
 
-      logActivity(skill[0].id, null, "install", { version: versionData.version });
-
-      // Get additional files for this version
-      const versionFiles = await db.select({
-        path: skillFiles.path,
-        content: skillFiles.content,
-        size: skillFiles.size,
-        isBinary: skillFiles.isBinary,
-      }).from(skillFiles).where(eq(skillFiles.versionId, versionData.id));
+      const { data: versionFiles } = await supabase
+        .from('skill_files')
+        .select('path, content, size, is_binary')
+        .eq('version_id', versionData.id);
 
       res.json({
         skill: {
-          name: skill[0].name,
-          slug: skill[0].slug,
-          owner: ownerUser[0].handle,
+          name: skill.name,
+          slug: skill.slug,
+          owner: ownerUser.handle,
         },
         version: versionData.version,
-        skillMd: versionData.skillMd,
+        skillMd: versionData.skill_md,
         manifest: versionData.manifest,
         readme: versionData.readme,
-        files: versionFiles,
+        files: versionFiles || [],
       });
     } catch (error) {
       console.error("Error installing skill:", error);
@@ -1757,32 +1741,20 @@ export function registerRoutes(app: Express) {
     try {
       const { q, limit = "20" } = req.query;
       
-      const conditions: any[] = [eq(skills.isPublic, true)];
+      let query = supabase
+        .from('skills')
+        .select('name, slug, description, stars, downloads, owner:users!owner_id(handle)')
+        .eq('is_public', true);
       
       if (q) {
-        conditions.push(
-          or(
-            ilike(skills.name, `%${q}%`),
-            ilike(skills.description, `%${q}%`)
-          )
-        );
+        query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
       }
 
-      const result = await db.select({
-        name: skills.name,
-        slug: skills.slug,
-        description: skills.description,
-        stars: skills.stars,
-        downloads: skills.downloads,
-        owner: users.handle,
-      })
-      .from(skills)
-      .leftJoin(users, eq(skills.ownerId, users.id))
-      .where(and(...conditions))
-      .orderBy(desc(skills.stars))
-      .limit(parseInt(limit as string));
+      const { data: result } = await query
+        .order('stars', { ascending: false })
+        .limit(parseInt(limit as string));
 
-      res.json(result);
+      res.json(result || []);
     } catch (error) {
       res.status(500).json({ message: "Failed to search" });
     }
@@ -1795,29 +1767,48 @@ export function registerRoutes(app: Express) {
       const slug = req.params.slug as string;
       const version = req.params.version as string | undefined;
       
-      const [ownerUser] = await db.select().from(users).where(eq(users.handle, owner)).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('handle', owner)
+        .maybeSingle();
       if (!ownerUser) return res.status(404).json({ message: "User not found" });
       
-      const [skill] = await db.select().from(skills).where(and(eq(skills.ownerId, ownerUser.id), eq(skills.slug, slug))).limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', ownerUser.id)
+        .eq('slug', slug)
+        .maybeSingle();
       if (!skill) return res.status(404).json({ message: "Skill not found" });
       
       let versionData;
       if (version && version !== "latest") {
-        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.version, version))).limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('version', version)
+          .maybeSingle();
+        versionData = data;
       } else {
-        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.isLatest, true))).limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('is_latest', true)
+          .maybeSingle();
+        versionData = data;
       }
       
       if (!versionData) return res.status(404).json({ message: "Version not found" });
       
-      await db.update(skills)
-        .set({ downloads: sql`${skills.downloads} + 1`, weeklyDownloads: sql`${skills.weeklyDownloads} + 1` })
-        .where(eq(skills.id, skill.id));
+      await supabase.rpc('increment_skill_downloads', { p_skill_id: skill.id });
       logActivity(skill.id, null, "download", { version: versionData.version, format: "md" });
 
       res.setHeader("Content-Type", "text/markdown");
       res.setHeader("Content-Disposition", `attachment; filename="${skill.slug}-${versionData.version}.md"`);
-      res.send(versionData.skillMd);
+      res.send(versionData.skill_md);
     } catch (error) {
       res.status(500).json({ message: "Failed to download skill" });
     }
@@ -1830,30 +1821,49 @@ export function registerRoutes(app: Express) {
       const slug = req.params.slug as string;
       const version = req.params.version as string | undefined;
       
-      const [ownerUser] = await db.select().from(users).where(eq(users.handle, owner)).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('handle', owner)
+        .maybeSingle();
       if (!ownerUser) return res.status(404).json({ message: "User not found" });
       
-      const [skill] = await db.select().from(skills).where(and(eq(skills.ownerId, ownerUser.id), eq(skills.slug, slug))).limit(1);
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('owner_id', ownerUser.id)
+        .eq('slug', slug)
+        .maybeSingle();
       if (!skill) return res.status(404).json({ message: "Skill not found" });
       
       let versionData;
       if (version && version !== "latest") {
-        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.version, version))).limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('version', version)
+          .maybeSingle();
+        versionData = data;
       } else {
-        [versionData] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, skill.id), eq(skillVersions.isLatest, true))).limit(1);
+        const { data } = await supabase
+          .from('skill_versions')
+          .select('*')
+          .eq('skill_id', skill.id)
+          .eq('is_latest', true)
+          .maybeSingle();
+        versionData = data;
       }
       
       if (!versionData) return res.status(404).json({ message: "Version not found" });
       
-      // Get all files for this version
-      const files = await db.select().from(skillFiles).where(eq(skillFiles.versionId, versionData.id));
+      const { data: files } = await supabase
+        .from('skill_files')
+        .select('*')
+        .eq('version_id', versionData.id);
       
-      await db.update(skillVersions)
-        .set({ downloads: sql`COALESCE(downloads, 0) + 1` })
-        .where(eq(skillVersions.id, versionData.id));
-      await db.update(skills)
-        .set({ downloads: sql`${skills.downloads} + 1`, weeklyDownloads: sql`COALESCE(weekly_downloads, 0) + 1` })
-        .where(eq(skills.id, skill.id));
+      await supabase.rpc('increment_version_downloads', { p_version_id: versionData.id });
+      await supabase.rpc('increment_skill_downloads', { p_skill_id: skill.id });
       logActivity(skill.id, null, "download", { version: versionData.version, format: "zip" });
       
       res.setHeader("Content-Type", "application/zip");
@@ -1862,11 +1872,9 @@ export function registerRoutes(app: Express) {
       const archive = archiver("zip", { zlib: { level: 9 } });
       archive.pipe(res);
       
-      // Add SKILL.md
-      archive.append(versionData.skillMd, { name: "SKILL.md" });
+      archive.append(versionData.skill_md, { name: "SKILL.md" });
       
-      // Add all other files
-      for (const file of files) {
+      for (const file of (files || [])) {
         if (file.path !== "SKILL.md" && file.content) {
           archive.append(file.content, { name: file.path });
         }
@@ -1885,40 +1893,64 @@ export function registerRoutes(app: Express) {
       const userId = (req.session as any)?.userId;
       const id = req.params.id as string;
       
-      const [originalSkill] = await db.select().from(skills).where(eq(skills.id, id)).limit(1);
+      const { data: originalSkill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
       if (!originalSkill) return res.status(404).json({ message: "Skill not found" });
       
-      const [latestVersion] = await db.select().from(skillVersions).where(and(eq(skillVersions.skillId, originalSkill.id), eq(skillVersions.isLatest, true))).limit(1);
+      const { data: latestVersion } = await supabase
+        .from('skill_versions')
+        .select('*')
+        .eq('skill_id', originalSkill.id)
+        .eq('is_latest', true)
+        .maybeSingle();
       
-      const [existing] = await db.select().from(skills).where(and(eq(skills.ownerId, userId), eq(skills.slug, originalSkill.slug))).limit(1);
-      const newSlug = existing ? `${originalSkill.slug}-fork-${Date.now()}` : originalSkill.slug;
+      const { data: existingFork } = await supabase
+        .from('skills')
+        .select('id')
+        .eq('owner_id', userId)
+        .eq('slug', originalSkill.slug)
+        .maybeSingle();
+
+      const newSlug = existingFork ? `${originalSkill.slug}-fork-${Date.now()}` : originalSkill.slug;
       
-      const [forkedSkill] = await db.insert(skills).values({
-        ownerId: userId,
-        forkedFromId: originalSkill.id,
-        name: originalSkill.name,
-        slug: newSlug,
-        description: originalSkill.description,
-        license: originalSkill.license,
-        tags: originalSkill.tags,
-        dependencies: originalSkill.dependencies,
-        isPublic: true,
-      }).returning();
+      const { data: forkedSkill } = await supabase
+        .from('skills')
+        .insert({
+          owner_id: userId,
+          forked_from_id: originalSkill.id,
+          name: originalSkill.name,
+          slug: newSlug,
+          description: originalSkill.description,
+          license: originalSkill.license,
+          tags: originalSkill.tags,
+          dependencies: originalSkill.dependencies,
+          is_public: true,
+        })
+        .select()
+        .single();
       
       if (latestVersion) {
-        await db.insert(skillVersions).values({
-          skillId: forkedSkill.id,
+        await supabase.from('skill_versions').insert({
+          skill_id: forkedSkill.id,
           version: "1.0.0",
-          skillMd: latestVersion.skillMd,
+          skill_md: latestVersion.skill_md,
           manifest: latestVersion.manifest,
-          isLatest: true,
+          is_latest: true,
         });
       }
       
-      await db.update(skills).set({ forks: sql`${skills.forks} + 1` }).where(eq(skills.id, originalSkill.id));
+      await supabase.rpc('increment_skill_forks', { p_skill_id: originalSkill.id });
       logActivity(originalSkill.id, userId, "fork", { forkedToId: forkedSkill.id });
       
-      const [ownerUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const { data: ownerUser } = await supabase
+        .from('users')
+        .select('handle')
+        .eq('id', userId)
+        .maybeSingle();
+
       res.json({ ...forkedSkill, owner: { handle: ownerUser?.handle } });
     } catch (error) {
       console.error("Fork error:", error);
@@ -1932,15 +1964,18 @@ export function registerRoutes(app: Express) {
       const id = req.params.id as string;
       const { state = "open" } = req.query;
       
-      const issues = await db.query.skillIssues.findMany({
-        where: state === "all" 
-          ? eq(skillIssues.skillId, id)
-          : and(eq(skillIssues.skillId, id), eq(skillIssues.state, state as string)),
-        with: { author: true },
-        orderBy: [desc(skillIssues.createdAt)],
-      });
+      let query = supabase
+        .from('skill_issues')
+        .select('*, author:users!author_id(*)')
+        .eq('skill_id', id);
+
+      if (state !== "all") {
+        query = query.eq('state', state as string);
+      }
+
+      const { data: issues } = await query.order('created_at', { ascending: false });
       
-      res.json(issues);
+      res.json(issues || []);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch issues" });
     }
@@ -1954,17 +1989,27 @@ export function registerRoutes(app: Express) {
       
       if (!title || title.length < 3) return res.status(400).json({ message: "Title must be at least 3 characters" });
       
-      const [maxNumber] = await db.select({ max: sql<number>`COALESCE(MAX(number), 0)` }).from(skillIssues).where(eq(skillIssues.skillId, id));
-      const number = (maxNumber?.max || 0) + 1;
+      const { data: maxIssue } = await supabase
+        .from('skill_issues')
+        .select('number')
+        .eq('skill_id', id)
+        .order('number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const number = (maxIssue?.number || 0) + 1;
       
-      const [issue] = await db.insert(skillIssues).values({
-        skillId: id,
-        authorId: userId,
-        number,
-        title,
-        body: body || null,
-        labels: labels || [],
-      }).returning();
+      const { data: issue } = await supabase
+        .from('skill_issues')
+        .insert({
+          skill_id: id,
+          author_id: userId,
+          number,
+          title,
+          body: body || null,
+          labels: labels || [],
+        })
+        .select()
+        .single();
       
       logActivity(id, userId, "issue_opened", { issueNumber: number, title });
       res.json(issue);
@@ -1979,13 +2024,21 @@ export function registerRoutes(app: Express) {
       const skillId = req.params.skillId as string;
       const number = req.params.number as string;
       
-      const [issue] = await db.query.skillIssues.findMany({
-        where: and(eq(skillIssues.skillId, skillId), eq(skillIssues.number, parseInt(number))),
-        with: { author: true, comments: { with: { author: true }, orderBy: [desc(issueComments.createdAt)] } },
-        limit: 1,
-      });
+      const { data: issue } = await supabase
+        .from('skill_issues')
+        .select('*, author:users!author_id(*), comments:issue_comments(*, author:users!author_id(*))')
+        .eq('skill_id', skillId)
+        .eq('number', parseInt(number))
+        .maybeSingle();
       
       if (!issue) return res.status(404).json({ message: "Issue not found" });
+
+      if (issue.comments) {
+        issue.comments.sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      }
+
       res.json(issue);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch issue" });
@@ -1999,23 +2052,37 @@ export function registerRoutes(app: Express) {
       const number = req.params.number as string;
       const { state, title, body } = req.body;
       
-      const [issue] = await db.select().from(skillIssues).where(and(eq(skillIssues.skillId, skillId), eq(skillIssues.number, parseInt(number)))).limit(1);
+      const { data: issue } = await supabase
+        .from('skill_issues')
+        .select('*')
+        .eq('skill_id', skillId)
+        .eq('number', parseInt(number))
+        .maybeSingle();
       if (!issue) return res.status(404).json({ message: "Issue not found" });
       
-      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
-      if (issue.authorId !== userId && skill?.ownerId !== userId) {
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('owner_id')
+        .eq('id', skillId)
+        .maybeSingle();
+      if (issue.author_id !== userId && skill?.owner_id !== userId) {
         return res.status(403).json({ message: "Not authorized to edit this issue" });
       }
       
-      const updates: any = { updatedAt: new Date() };
+      const updates: any = { updated_at: new Date().toISOString() };
       if (state) {
         updates.state = state;
-        if (state === "closed") updates.closedAt = new Date();
+        if (state === "closed") updates.closed_at = new Date().toISOString();
       }
       if (title) updates.title = title;
       if (body !== undefined) updates.body = body;
       
-      const [updated] = await db.update(skillIssues).set(updates).where(eq(skillIssues.id, issue.id)).returning();
+      const { data: updated } = await supabase
+        .from('skill_issues')
+        .update(updates)
+        .eq('id', issue.id)
+        .select()
+        .single();
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to update issue" });
@@ -2031,14 +2098,23 @@ export function registerRoutes(app: Express) {
       
       if (!body || body.length < 1) return res.status(400).json({ message: "Comment body required" });
       
-      const [issue] = await db.select().from(skillIssues).where(and(eq(skillIssues.skillId, skillId), eq(skillIssues.number, parseInt(number)))).limit(1);
+      const { data: issue } = await supabase
+        .from('skill_issues')
+        .select('id')
+        .eq('skill_id', skillId)
+        .eq('number', parseInt(number))
+        .maybeSingle();
       if (!issue) return res.status(404).json({ message: "Issue not found" });
       
-      const [comment] = await db.insert(issueComments).values({
-        issueId: issue.id,
-        authorId: userId,
-        body,
-      }).returning();
+      const { data: comment } = await supabase
+        .from('issue_comments')
+        .insert({
+          issue_id: issue.id,
+          author_id: userId,
+          body,
+        })
+        .select()
+        .single();
       
       res.json(comment);
     } catch (error) {
@@ -2052,15 +2128,18 @@ export function registerRoutes(app: Express) {
       const id = req.params.id as string;
       const { state = "open" } = req.query;
       
-      const prs = await db.query.skillPullRequests.findMany({
-        where: state === "all" 
-          ? eq(skillPullRequests.skillId, id)
-          : and(eq(skillPullRequests.skillId, id), eq(skillPullRequests.state, state as string)),
-        with: { author: true },
-        orderBy: [desc(skillPullRequests.createdAt)],
-      });
+      let query = supabase
+        .from('skill_pull_requests')
+        .select('*, author:users!author_id(*)')
+        .eq('skill_id', id);
+
+      if (state !== "all") {
+        query = query.eq('state', state as string);
+      }
+
+      const { data: prs } = await query.order('created_at', { ascending: false });
       
-      res.json(prs);
+      res.json(prs || []);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch pull requests" });
     }
@@ -2075,18 +2154,28 @@ export function registerRoutes(app: Express) {
       if (!title || title.length < 3) return res.status(400).json({ message: "Title must be at least 3 characters" });
       if (!proposedSkillMd) return res.status(400).json({ message: "Proposed SKILL.md content required" });
       
-      const [maxNumber] = await db.select({ max: sql<number>`COALESCE(MAX(number), 0)` }).from(skillPullRequests).where(eq(skillPullRequests.skillId, id));
-      const number = (maxNumber?.max || 0) + 1;
+      const { data: maxPr } = await supabase
+        .from('skill_pull_requests')
+        .select('number')
+        .eq('skill_id', id)
+        .order('number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const number = (maxPr?.number || 0) + 1;
       
-      const [pr] = await db.insert(skillPullRequests).values({
-        skillId: id,
-        authorId: userId,
-        number,
-        title,
-        body: body || null,
-        proposedSkillMd,
-        baseVersion: baseVersion || null,
-      }).returning();
+      const { data: pr } = await supabase
+        .from('skill_pull_requests')
+        .insert({
+          skill_id: id,
+          author_id: userId,
+          number,
+          title,
+          body: body || null,
+          proposed_skill_md: proposedSkillMd,
+          base_version: baseVersion || null,
+        })
+        .select()
+        .single();
       
       logActivity(id, userId, "pr_opened", { prNumber: number, title });
       res.json(pr);
@@ -2101,13 +2190,21 @@ export function registerRoutes(app: Express) {
       const skillId = req.params.skillId as string;
       const number = req.params.number as string;
       
-      const [pr] = await db.query.skillPullRequests.findMany({
-        where: and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.number, parseInt(number))),
-        with: { author: true, comments: { with: { author: true }, orderBy: [desc(prComments.createdAt)] } },
-        limit: 1,
-      });
+      const { data: pr } = await supabase
+        .from('skill_pull_requests')
+        .select('*, author:users!author_id(*), comments:pr_comments(*, author:users!author_id(*))')
+        .eq('skill_id', skillId)
+        .eq('number', parseInt(number))
+        .maybeSingle();
       
       if (!pr) return res.status(404).json({ message: "Pull request not found" });
+
+      if (pr.comments) {
+        pr.comments.sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      }
+
       res.json(pr);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch pull request" });
@@ -2121,24 +2218,38 @@ export function registerRoutes(app: Express) {
       const number = req.params.number as string;
       const { state, title, body } = req.body;
       
-      const [pr] = await db.select().from(skillPullRequests).where(and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.number, parseInt(number)))).limit(1);
+      const { data: pr } = await supabase
+        .from('skill_pull_requests')
+        .select('*')
+        .eq('skill_id', skillId)
+        .eq('number', parseInt(number))
+        .maybeSingle();
       if (!pr) return res.status(404).json({ message: "Pull request not found" });
       
-      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
-      if (pr.authorId !== userId && skill?.ownerId !== userId) {
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('owner_id')
+        .eq('id', skillId)
+        .maybeSingle();
+      if (pr.author_id !== userId && skill?.owner_id !== userId) {
         return res.status(403).json({ message: "Not authorized" });
       }
       
-      const updates: any = { updatedAt: new Date() };
+      const updates: any = { updated_at: new Date().toISOString() };
       if (state) {
         updates.state = state;
-        if (state === "closed") updates.closedAt = new Date();
-        if (state === "merged") updates.mergedAt = new Date();
+        if (state === "closed") updates.closed_at = new Date().toISOString();
+        if (state === "merged") updates.merged_at = new Date().toISOString();
       }
       if (title) updates.title = title;
       if (body !== undefined) updates.body = body;
       
-      const [updated] = await db.update(skillPullRequests).set(updates).where(eq(skillPullRequests.id, pr.id)).returning();
+      const { data: updated } = await supabase
+        .from('skill_pull_requests')
+        .update(updates)
+        .eq('id', pr.id)
+        .select()
+        .single();
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to update pull request" });
@@ -2153,18 +2264,29 @@ export function registerRoutes(app: Express) {
       const number = req.params.number as string;
       const { newVersion } = req.body;
       
-      const [skill] = await db.select().from(skills).where(eq(skills.id, skillId)).limit(1);
-      if (!skill || skill.ownerId !== userId) return res.status(403).json({ message: "Only skill owner can merge" });
+      const { data: skill } = await supabase
+        .from('skills')
+        .select('*')
+        .eq('id', skillId)
+        .maybeSingle();
+      if (!skill || skill.owner_id !== userId) return res.status(403).json({ message: "Only skill owner can merge" });
       
-      const [pr] = await db.select().from(skillPullRequests).where(and(eq(skillPullRequests.skillId, skillId), eq(skillPullRequests.number, parseInt(number)))).limit(1);
+      const { data: pr } = await supabase
+        .from('skill_pull_requests')
+        .select('*')
+        .eq('skill_id', skillId)
+        .eq('number', parseInt(number))
+        .maybeSingle();
       if (!pr) return res.status(404).json({ message: "Pull request not found" });
       if (pr.state !== "open") return res.status(400).json({ message: "PR is not open" });
       
-      await db.update(skillVersions).set({ isLatest: false }).where(eq(skillVersions.skillId, skillId));
+      await supabase
+        .from('skill_versions')
+        .update({ is_latest: false })
+        .eq('skill_id', skillId);
       
-      // Parse manifest from SKILL.md frontmatter
       let manifest: Record<string, any> = {};
-      const fmMatch = pr.proposedSkillMd.match(/^---\n([\s\S]*?)\n---/);
+      const fmMatch = pr.proposed_skill_md.match(/^---\n([\s\S]*?)\n---/);
       if (fmMatch) {
         try {
           const lines = fmMatch[1].split('\n');
@@ -2174,22 +2296,30 @@ export function registerRoutes(app: Express) {
           }
         } catch {}
       }
-      const validation = await validateSkillMd(pr.proposedSkillMd, manifest);
-      const [newVersionRecord] = await db.insert(skillVersions).values({
-        skillId,
-        version: newVersion || "1.0.0",
-        skillMd: pr.proposedSkillMd,
-        isLatest: true,
-      }).returning();
+      const validation = await validateSkillMd(pr.proposed_skill_md, manifest);
+
+      const { data: newVersionRecord } = await supabase
+        .from('skill_versions')
+        .insert({
+          skill_id: skillId,
+          version: newVersion || "1.0.0",
+          skill_md: pr.proposed_skill_md,
+          is_latest: true,
+        })
+        .select()
+        .single();
       
-      await db.insert(skillValidations).values({
-        versionId: newVersionRecord.id,
+      await supabase.from('skill_validations').insert({
+        version_id: newVersionRecord.id,
         status: validation.passed ? "passed" : "failed",
         score: validation.score,
         checks: validation.checks,
       });
       
-      await db.update(skillPullRequests).set({ state: "merged", mergedAt: new Date(), updatedAt: new Date() }).where(eq(skillPullRequests.id, pr.id));
+      await supabase
+        .from('skill_pull_requests')
+        .update({ state: "merged", merged_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', pr.id);
       
       logActivity(skillId, userId, "pr_merged", { prNumber: parseInt(number), newVersion });
       res.json({ message: "Pull request merged", version: newVersion });

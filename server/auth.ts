@@ -1,7 +1,5 @@
 import { Express, Request, Response, NextFunction } from "express";
-import { db } from "./db.js";
-import { users, authIdentities, passwordResetTokens, emailVerificationTokens } from "../shared/schema.js";
-import { eq, and, or } from "drizzle-orm";
+import { supabase } from "./db.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
@@ -13,12 +11,10 @@ function getBaseUrl(req: Request): string {
   return `${proto}://${host}`;
 }
 
-// Generate secure random token
 function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// Password validation
 function validatePassword(password: string): { valid: boolean; message?: string } {
   if (password.length < 8) {
     return { valid: false, message: "Password must be at least 8 characters" };
@@ -35,7 +31,6 @@ function validatePassword(password: string): { valid: boolean; message?: string 
   return { valid: true };
 }
 
-// Handle validation
 function validateHandle(handle: string): { valid: boolean; message?: string } {
   if (!handle || handle.length < 3) {
     return { valid: false, message: "Username must be at least 3 characters" };
@@ -52,12 +47,10 @@ function validateHandle(handle: string): { valid: boolean; message?: string } {
   return { valid: true };
 }
 
-// Email validation
 function validateEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Session-based authentication middleware
 export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   if ((req.session as any)?.userId) {
     return next();
@@ -65,39 +58,35 @@ export function isAuthenticated(req: Request, res: Response, next: NextFunction)
   return res.status(401).json({ message: "Authentication required" });
 }
 
-// Get current user from session
 export async function getCurrentUser(req: Request): Promise<any> {
   const userId = (req.session as any)?.userId;
   if (!userId) return null;
-  
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+  const { data: user } = await supabase.from("users").select("*").eq("id", userId).maybeSingle();
   return user || null;
 }
 
 export function setupAuthRoutes(app: Express) {
-  // Get current user
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     try {
       const user = await getCurrentUser(req);
       if (!user) {
         return res.status(401).json({ message: "Not authenticated" });
       }
-      const { passwordHash, openaiApiKey, ...safeUser } = user;
-      res.json({ 
-        ...safeUser, 
-        hasOpenaiKey: !!openaiApiKey 
+      const { password_hash, openai_api_key, ...safeUser } = user;
+      res.json({
+        ...safeUser,
+        hasOpenaiKey: !!openai_api_key,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to get user" });
     }
   });
 
-  // Register with email/password
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const { email, password, handle, firstName, lastName } = req.body;
 
-      // Validate inputs
       if (!email || !validateEmail(email)) {
         return res.status(400).json({ message: "Valid email is required" });
       }
@@ -112,42 +101,38 @@ export function setupAuthRoutes(app: Express) {
         return res.status(400).json({ message: handleValidation.message });
       }
 
-      // Check if email already exists
-      const [existingEmail] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+      const { data: existingEmail } = await supabase.from("users").select("id").eq("email", email.toLowerCase()).maybeSingle();
       if (existingEmail) {
         return res.status(400).json({ message: "Email already registered" });
       }
 
-      // Check if handle already exists
-      const [existingHandle] = await db.select().from(users).where(eq(users.handle, handle.toLowerCase())).limit(1);
+      const { data: existingHandle } = await supabase.from("users").select("id").eq("handle", handle.toLowerCase()).maybeSingle();
       if (existingHandle) {
         return res.status(400).json({ message: "Username already taken" });
       }
 
-      // Hash password
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-      // Create user
-      const [newUser] = await db.insert(users).values({
+      const { data: newUser, error } = await supabase.from("users").insert({
         email: email.toLowerCase(),
-        passwordHash,
+        password_hash: passwordHash,
         handle: handle.toLowerCase(),
-        firstName,
-        lastName,
-        emailVerified: false,
-      }).returning();
+        first_name: firstName,
+        last_name: lastName,
+        email_verified: false,
+      }).select().single();
 
-      // Create auth identity
-      await db.insert(authIdentities).values({
-        userId: newUser.id,
+      if (error) throw error;
+
+      await supabase.from("auth_identities").insert({
+        user_id: newUser.id,
         provider: "email",
-        providerUserId: email.toLowerCase(),
+        provider_user_id: email.toLowerCase(),
       });
 
-      // Set session
       (req.session as any).userId = newUser.id;
 
-      const { passwordHash: _, openaiApiKey, ...safeUser } = newUser;
+      const { password_hash: _, openai_api_key, ...safeUser } = newUser;
       res.json({ user: safeUser, message: "Registration successful" });
     } catch (error) {
       console.error("Registration error:", error);
@@ -155,7 +140,6 @@ export function setupAuthRoutes(app: Express) {
     }
   });
 
-  // Login with email/password
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
@@ -164,30 +148,26 @@ export function setupAuthRoutes(app: Express) {
         return res.status(400).json({ message: "Email and password required" });
       }
 
-      // Find user by email
-      const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
-      if (!user || !user.passwordHash) {
+      const { data: user } = await supabase.from("users").select("*").eq("email", email.toLowerCase()).maybeSingle();
+      if (!user || !user.password_hash) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Verify password
-      const validPassword = await bcrypt.compare(password, user.passwordHash);
+      const validPassword = await bcrypt.compare(password, user.password_hash);
       if (!validPassword) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Set session
       (req.session as any).userId = user.id;
 
-      const { passwordHash, openaiApiKey, ...safeUser } = user;
-      res.json({ user: { ...safeUser, hasOpenaiKey: !!openaiApiKey } });
+      const { password_hash, openai_api_key, ...safeUser } = user;
+      res.json({ user: { ...safeUser, hasOpenaiKey: !!openai_api_key } });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Login failed" });
     }
   });
 
-  // Logout
   app.post("/api/auth/logout", (req: Request, res: Response) => {
     req.session.destroy((err) => {
       if (err) {
@@ -198,35 +178,31 @@ export function setupAuthRoutes(app: Express) {
     });
   });
 
-  // Request password reset
   app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
     try {
       const { email } = req.body;
-      
+
       if (!email) {
         return res.status(400).json({ message: "Email required" });
       }
 
-      const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
-      
-      // Always return success to prevent email enumeration
+      const { data: user } = await supabase.from("users").select("id").eq("email", email.toLowerCase()).maybeSingle();
+
       if (!user) {
         return res.json({ message: "If an account exists, a reset link will be sent" });
       }
 
-      // Generate reset token
       const token = generateToken();
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-      await db.insert(passwordResetTokens).values({
-        userId: user.id,
+      await supabase.from("password_reset_tokens").insert({
+        user_id: user.id,
         token,
-        expiresAt,
+        expires_at: expiresAt,
       });
 
-      // In production, send email here
       console.log(`Password reset token for ${email}: ${token}`);
-      
+
       res.json({ message: "If an account exists, a reset link will be sent" });
     } catch (error) {
       console.error("Forgot password error:", error);
@@ -234,7 +210,6 @@ export function setupAuthRoutes(app: Express) {
     }
   });
 
-  // Reset password with token
   app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
     try {
       const { token, password } = req.body;
@@ -248,24 +223,17 @@ export function setupAuthRoutes(app: Express) {
         return res.status(400).json({ message: passwordValidation.message });
       }
 
-      // Find valid token
-      const [resetToken] = await db.select()
-        .from(passwordResetTokens)
-        .where(eq(passwordResetTokens.token, token))
-        .limit(1);
+      const { data: resetToken } = await supabase.from("password_reset_tokens").select("*").eq("token", token).maybeSingle();
 
-      if (!resetToken || resetToken.usedAt || new Date() > resetToken.expiresAt) {
+      if (!resetToken || resetToken.used_at || new Date() > new Date(resetToken.expires_at)) {
         return res.status(400).json({ message: "Invalid or expired reset token" });
       }
 
-      // Hash new password
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-      // Update user password
-      await db.update(users).set({ passwordHash }).where(eq(users.id, resetToken.userId));
+      await supabase.from("users").update({ password_hash: passwordHash }).eq("id", resetToken.user_id);
 
-      // Mark token as used
-      await db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, resetToken.id));
+      await supabase.from("password_reset_tokens").update({ used_at: new Date().toISOString() }).eq("id", resetToken.id);
 
       res.json({ message: "Password reset successful" });
     } catch (error) {
@@ -274,7 +242,6 @@ export function setupAuthRoutes(app: Express) {
     }
   });
 
-  // Google OAuth - redirect to Google
   app.get("/api/auth/google", (req: Request, res: Response) => {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     if (!clientId) {
@@ -285,11 +252,11 @@ export function setupAuthRoutes(app: Express) {
     const redirectUri = `${baseUrl}/api/auth/google/callback`;
     const scope = encodeURIComponent("openid email profile");
     const state = generateToken();
-    
+
     (req.session as any).oauthState = state;
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${state}&access_type=offline`;
-    
+
     req.session.save((err) => {
       if (err) {
         console.error("Failed to save OAuth state to session:", err);
@@ -300,7 +267,6 @@ export function setupAuthRoutes(app: Express) {
     });
   });
 
-  // Google OAuth callback
   app.get("/api/auth/google/callback", async (req: Request, res: Response) => {
     try {
       const { code, state } = req.query;
@@ -317,7 +283,6 @@ export function setupAuthRoutes(app: Express) {
       const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
       const redirectUri = `${getBaseUrl(req)}/api/auth/google/callback`;
 
-      // Exchange code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -337,54 +302,52 @@ export function setupAuthRoutes(app: Express) {
         return res.redirect("/?error=auth_failed");
       }
 
-      // Get user info from Google
       const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
       const googleUser = await userInfoResponse.json();
       console.log("OAuth user info:", googleUser.email, "id:", googleUser.id);
 
-      // Check if identity already exists
-      const [existingIdentity] = await db.select()
-        .from(authIdentities)
-        .where(and(eq(authIdentities.provider, "google"), eq(authIdentities.providerUserId, googleUser.id)))
-        .limit(1);
+      const { data: existingIdentity } = await supabase.from("auth_identities")
+        .select("user_id")
+        .eq("provider", "google")
+        .eq("provider_user_id", googleUser.id)
+        .maybeSingle();
 
       let userId: string;
 
       if (existingIdentity) {
-        userId = existingIdentity.userId;
+        userId = existingIdentity.user_id;
       } else {
-        // Check if user with same email exists
-        const [existingUser] = await db.select().from(users).where(eq(users.email, googleUser.email.toLowerCase())).limit(1);
-        
+        const { data: existingUser } = await supabase.from("users").select("id").eq("email", googleUser.email.toLowerCase()).maybeSingle();
+
         if (existingUser) {
-          // Link Google to existing account
-          await db.insert(authIdentities).values({
-            userId: existingUser.id,
+          await supabase.from("auth_identities").insert({
+            user_id: existingUser.id,
             provider: "google",
-            providerUserId: googleUser.id,
-            providerData: googleUser,
+            provider_user_id: googleUser.id,
+            provider_data: googleUser,
           });
           userId = existingUser.id;
         } else {
-          // Create new user
           const handle = googleUser.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_-]/g, "") || `user${Date.now()}`;
-          
-          const [newUser] = await db.insert(users).values({
-            email: googleUser.email.toLowerCase(),
-            firstName: googleUser.given_name,
-            lastName: googleUser.family_name,
-            profileImageUrl: googleUser.picture,
-            handle,
-            emailVerified: true,
-          }).returning();
 
-          await db.insert(authIdentities).values({
-            userId: newUser.id,
+          const { data: newUser, error } = await supabase.from("users").insert({
+            email: googleUser.email.toLowerCase(),
+            first_name: googleUser.given_name,
+            last_name: googleUser.family_name,
+            profile_image_url: googleUser.picture,
+            handle,
+            email_verified: true,
+          }).select().single();
+
+          if (error) throw error;
+
+          await supabase.from("auth_identities").insert({
+            user_id: newUser.id,
             provider: "google",
-            providerUserId: googleUser.id,
-            providerData: googleUser,
+            provider_user_id: googleUser.id,
+            provider_data: googleUser,
           });
 
           userId = newUser.id;
@@ -407,7 +370,6 @@ export function setupAuthRoutes(app: Express) {
     }
   });
 
-  // GitHub OAuth - redirect to GitHub
   app.get("/api/auth/github", (req: Request, res: Response) => {
     const clientId = process.env.GITHUB_CLIENT_ID;
     if (!clientId) {
@@ -432,7 +394,6 @@ export function setupAuthRoutes(app: Express) {
     });
   });
 
-  // GitHub OAuth callback
   app.get("/api/auth/github/callback", async (req: Request, res: Response) => {
     try {
       const { code, state } = req.query;
@@ -492,44 +453,47 @@ export function setupAuthRoutes(app: Express) {
 
       const githubId = String(githubUser.id);
 
-      const [existingIdentity] = await db.select()
-        .from(authIdentities)
-        .where(and(eq(authIdentities.provider, "github"), eq(authIdentities.providerUserId, githubId)))
-        .limit(1);
+      const { data: existingIdentity } = await supabase.from("auth_identities")
+        .select("user_id")
+        .eq("provider", "github")
+        .eq("provider_user_id", githubId)
+        .maybeSingle();
 
       let userId: string;
 
       if (existingIdentity) {
-        userId = existingIdentity.userId;
+        userId = existingIdentity.user_id;
       } else {
-        const [existingUser] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+        const { data: existingUser } = await supabase.from("users").select("id").eq("email", email.toLowerCase()).maybeSingle();
 
         if (existingUser) {
-          await db.insert(authIdentities).values({
-            userId: existingUser.id,
+          await supabase.from("auth_identities").insert({
+            user_id: existingUser.id,
             provider: "github",
-            providerUserId: githubId,
-            providerData: githubUser,
+            provider_user_id: githubId,
+            provider_data: githubUser,
           });
           userId = existingUser.id;
         } else {
           const handle = (githubUser.login || email.split("@")[0]).toLowerCase().replace(/[^a-z0-9_-]/g, "") || `user${Date.now()}`;
           const nameParts = (githubUser.name || "").split(" ");
 
-          const [newUser] = await db.insert(users).values({
+          const { data: newUser, error } = await supabase.from("users").insert({
             email: email.toLowerCase(),
-            firstName: nameParts[0] || null,
-            lastName: nameParts.slice(1).join(" ") || null,
-            profileImageUrl: githubUser.avatar_url,
+            first_name: nameParts[0] || null,
+            last_name: nameParts.slice(1).join(" ") || null,
+            profile_image_url: githubUser.avatar_url,
             handle,
-            emailVerified: true,
-          }).returning();
+            email_verified: true,
+          }).select().single();
 
-          await db.insert(authIdentities).values({
-            userId: newUser.id,
+          if (error) throw error;
+
+          await supabase.from("auth_identities").insert({
+            user_id: newUser.id,
             provider: "github",
-            providerUserId: githubId,
-            providerData: githubUser,
+            provider_user_id: githubId,
+            provider_data: githubUser,
           });
 
           userId = newUser.id;
@@ -552,24 +516,21 @@ export function setupAuthRoutes(app: Express) {
     }
   });
 
-  // Update OpenAI API key
   app.put("/api/auth/openai-key", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = (req.session as any).userId;
       const { apiKey } = req.body;
 
       if (!apiKey) {
-        // Remove key
-        await db.update(users).set({ openaiApiKey: null }).where(eq(users.id, userId));
+        await supabase.from("users").update({ openai_api_key: null }).eq("id", userId);
         return res.json({ message: "API key removed" });
       }
 
-      // Validate key format
       if (!apiKey.startsWith("sk-")) {
         return res.status(400).json({ message: "Invalid OpenAI API key format" });
       }
 
-      await db.update(users).set({ openaiApiKey: apiKey }).where(eq(users.id, userId));
+      await supabase.from("users").update({ openai_api_key: apiKey }).eq("id", userId);
       res.json({ message: "API key saved" });
     } catch (error) {
       res.status(500).json({ message: "Failed to save API key" });

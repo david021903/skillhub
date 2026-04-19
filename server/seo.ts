@@ -1,7 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { db } from "./db.js";
-import { skills, users, skillVersions, skillValidations } from "../shared/schema.js";
-import { eq, and, desc } from "drizzle-orm";
+import { supabase } from "./db.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -9,16 +7,17 @@ const SITE_URL = "https://skillhub.space";
 
 export async function getBrowsePreRendered(): Promise<string> {
   try {
-    const allSkills = await db
-      .select({ name: skills.name, slug: skills.slug, description: skills.description, ownerHandle: users.handle, downloads: skills.downloads })
-      .from(skills)
-      .leftJoin(users, eq(skills.ownerId, users.id))
-      .where(eq(skills.isPublic, true))
-      .orderBy(desc(skills.downloads))
+    const { data: allSkills } = await supabase
+      .from("skills")
+      .select("name, slug, description, downloads, owner:users!owner_id(handle)")
+      .eq("is_public", true)
+      .order("downloads", { ascending: false })
       .limit(50);
+
+    if (!allSkills) return fallbackBrowse();
     const totalCount = allSkills.length;
-    const skillListHtml = allSkills.map(s =>
-      `<li><a href="/skills/${s.ownerHandle || "unknown"}/${s.slug}">${escapeHtml(s.name)}</a><p>${escapeHtml(s.description || "No description available")}</p></li>`
+    const skillListHtml = allSkills.map((s: any) =>
+      `<li><a href="/skills/${(s.owner as any)?.handle || "unknown"}/${s.slug}">${escapeHtml(s.name)}</a><p>${escapeHtml(s.description || "No description available")}</p></li>`
     ).join("");
     return `<article>
 <h1>Browse OpenClaw Agent Skills</h1>
@@ -39,26 +38,33 @@ export async function getBrowsePreRendered(): Promise<string> {
 </section>
 </article>`;
   } catch {
-    return `<article><h1>Browse OpenClaw Agent Skills</h1><p>Welcome to the SkillHub skills registry. Browse over 1,000 verified OpenClaw agent skills. Each skill extends your AI agent's capabilities with new instructions, tools, and workflows. Search by name, filter by category, and install with a single command.</p></article>`;
+    return fallbackBrowse();
   }
+}
+
+function fallbackBrowse(): string {
+  return `<article><h1>Browse OpenClaw Agent Skills</h1><p>Welcome to the SkillHub skills registry. Browse over 1,000 verified OpenClaw agent skills. Each skill extends your AI agent's capabilities with new instructions, tools, and workflows. Search by name, filter by category, and install with a single command.</p></article>`;
 }
 
 export async function getSkillPreRendered(owner: string, slug: string): Promise<string> {
   try {
-    const result = await db
-      .select({ name: skills.name, description: skills.description, downloads: skills.downloads })
-      .from(skills)
-      .where(and(eq(skills.slug, slug), eq(skills.isPublic, true)))
-      .limit(1);
-    if (result.length === 0) return "";
-    const skill = result[0];
-    const versions = await db
-      .select({ version: skillVersions.version })
-      .from(skillVersions)
-      .where(eq(skillVersions.skillId, (await db.select({ id: skills.id }).from(skills).where(eq(skills.slug, slug)).limit(1))[0]?.id ?? -1))
-      .orderBy(desc(skillVersions.createdAt))
+    const { data: skill } = await supabase
+      .from("skills")
+      .select("id, name, description, downloads")
+      .eq("slug", slug)
+      .eq("is_public", true)
+      .maybeSingle();
+
+    if (!skill) return "";
+
+    const { data: versions } = await supabase
+      .from("skill_versions")
+      .select("version")
+      .eq("skill_id", skill.id)
+      .order("created_at", { ascending: false })
       .limit(5);
-    const versionList = versions.map(v => v.version).join(", ");
+
+    const versionList = (versions || []).map((v: any) => v.version).join(", ");
     return `<article>
 <h1>${escapeHtml(skill.name)}</h1>
 <p>${escapeHtml(skill.description || "An OpenClaw agent skill available on SkillHub.")}</p>
@@ -81,19 +87,22 @@ export async function getSkillPreRendered(owner: string, slug: string): Promise<
 
 export async function getUserPreRendered(handle: string): Promise<{ content: string; title: string; description: string } | null> {
   try {
-    const result = await db
-      .select({ handle: users.handle, bio: users.bio })
-      .from(users)
-      .where(eq(users.handle, handle))
-      .limit(1);
-    if (result.length === 0) return null;
-    const user = result[0];
-    const userSkills = await db
-      .select({ name: skills.name, slug: skills.slug })
-      .from(skills)
-      .where(and(eq(skills.ownerId, (await db.select({ id: users.id }).from(users).where(eq(users.handle, handle)).limit(1))[0]?.id ?? -1), eq(skills.isPublic, true)))
+    const { data: user } = await supabase
+      .from("users")
+      .select("id, handle, bio")
+      .eq("handle", handle)
+      .maybeSingle();
+
+    if (!user) return null;
+
+    const { data: userSkills } = await supabase
+      .from("skills")
+      .select("name, slug")
+      .eq("owner_id", user.id)
+      .eq("is_public", true)
       .limit(20);
-    const skillLinks = userSkills.map(s =>
+
+    const skillLinks = (userSkills || []).map((s: any) =>
       `<li><a href="/skills/${escapeHtml(handle)}/${s.slug}">${escapeHtml(s.name)}</a></li>`
     ).join("");
     const userHandle = user.handle || handle;
@@ -285,16 +294,10 @@ Sitemap: ${SITE_URL}/sitemap.xml
 
   app.get("/sitemap.xml", async (_req: Request, res: Response) => {
     try {
-      const allSkills = await db
-        .select({
-          slug: skills.slug,
-          updatedAt: skills.updatedAt,
-          ownerHandle: users.handle,
-          ownerId: users.id,
-        })
-        .from(skills)
-        .leftJoin(users, eq(skills.ownerId, users.id))
-        .where(eq(skills.isPublic, true));
+      const { data: allSkills } = await supabase
+        .from("skills")
+        .select("slug, updated_at, owner:users!owner_id(id, handle)")
+        .eq("is_public", true);
 
       const today = new Date().toISOString().split("T")[0];
 
@@ -320,13 +323,14 @@ Sitemap: ${SITE_URL}/sitemap.xml
   </url>
 `;
 
-      for (const skill of allSkills) {
-        const owner = skill.ownerHandle || skill.ownerId;
-        const lastmod = skill.updatedAt
-          ? new Date(skill.updatedAt).toISOString().split("T")[0]
+      for (const skill of allSkills || []) {
+        const ownerData = skill.owner as any;
+        const ownerHandle = ownerData?.handle || ownerData?.id || "unknown";
+        const lastmod = skill.updated_at
+          ? new Date(skill.updated_at).toISOString().split("T")[0]
           : today;
         xml += `  <url>
-    <loc>${SITE_URL}/skills/${owner}/${skill.slug}</loc>
+    <loc>${SITE_URL}/skills/${ownerHandle}/${skill.slug}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
     <lastmod>${lastmod}</lastmod>
@@ -347,40 +351,28 @@ Sitemap: ${SITE_URL}/sitemap.xml
 
 export async function getSkillMetaTags(owner: string, slug: string): Promise<{ title: string; description: string; url: string; jsonLd: string } | null> {
   try {
-    const result = await db
-      .select({
-        name: skills.name,
-        description: skills.description,
-        slug: skills.slug,
-        stars: skills.stars,
-        downloads: skills.downloads,
-        isPublic: skills.isPublic,
-        ownerHandle: users.handle,
-        ownerName: users.firstName,
-      })
-      .from(skills)
-      .leftJoin(users, eq(skills.ownerId, users.id))
-      .where(and(
-        eq(skills.slug, slug),
-        eq(skills.isPublic, true),
-      ))
-      .limit(1);
+    const { data: result } = await supabase
+      .from("skills")
+      .select("name, description, slug, stars, downloads, is_public, owner:users!owner_id(handle, first_name)")
+      .eq("slug", slug)
+      .eq("is_public", true)
+      .maybeSingle();
 
-    if (result.length === 0) return null;
+    if (!result) return null;
 
-    const skill = result[0];
-    const ownerHandle = skill.ownerHandle || owner;
-    const title = `${skill.name} - SkillHub`;
-    const description = skill.description
-      ? `${skill.description} — Install with: shsc install ${ownerHandle}/${skill.slug}`
-      : `${skill.name} — an OpenClaw agent skill on SkillHub. Install with: shsc install ${ownerHandle}/${skill.slug}`;
-    const url = `${SITE_URL}/skills/${ownerHandle}/${skill.slug}`;
+    const ownerData = result.owner as any;
+    const ownerHandle = ownerData?.handle || owner;
+    const title = `${result.name} - SkillHub`;
+    const description = result.description
+      ? `${result.description} — Install with: shsc install ${ownerHandle}/${result.slug}`
+      : `${result.name} — an OpenClaw agent skill on SkillHub. Install with: shsc install ${ownerHandle}/${result.slug}`;
+    const url = `${SITE_URL}/skills/${ownerHandle}/${result.slug}`;
 
     const jsonLd = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": skill.name,
-      "description": skill.description || `${skill.name} - an OpenClaw agent skill`,
+      "name": result.name,
+      "description": result.description || `${result.name} - an OpenClaw agent skill`,
       "url": url,
       "applicationCategory": "AI Agent Skill",
       "operatingSystem": "Any",
@@ -389,15 +381,15 @@ export async function getSkillMetaTags(owner: string, slug: string): Promise<{ t
         "price": "0",
         "priceCurrency": "USD",
       },
-      "aggregateRating": skill.stars && skill.stars > 0 ? {
+      "aggregateRating": result.stars && result.stars > 0 ? {
         "@type": "AggregateRating",
-        "ratingCount": skill.stars,
+        "ratingCount": result.stars,
         "bestRating": 5,
         "worstRating": 1,
       } : undefined,
       "author": {
         "@type": "Person",
-        "name": skill.ownerName || ownerHandle,
+        "name": ownerData?.first_name || ownerHandle,
       },
     }).replace(/<\//g, "<\\/");
 

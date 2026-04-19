@@ -1,8 +1,56 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+build/
+*.tsbuildinfo
+
+# Environment / secrets
 .env
 .env.local
+.env.*.local
+.env.production
+.env.development
+
+# Logs
 *.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
 .DS_Store
-*.tsbuildinfo
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Replit-specific (regenerated per environment)
+.replit_integration_files/
+.cache/
+.upm/
+.config/
+.agents/
+.local/
+
+# Drizzle migrations (generated)
 drizzle/
+
+# Attached assets / scratch
+attached_assets/
+
+# Archives
+*.zip
+*.tgz
+*.tar.gz
+# But keep the published CLI download (served by the web app)
+!client/public/downloads/*.tgz
+
+# Old spec-only blueprint folder (not part of the running app)
+skillbook-blueprint/
+
+# Misc
+*.bak
+*.tmp

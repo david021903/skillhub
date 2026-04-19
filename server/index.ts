@@ -86,10 +86,13 @@ async function initializeApp() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Session setup with PostgreSQL store
+  // Session setup with PostgreSQL store — must use the same DB as the main app
+  const { resolveDatabaseUrl, describeDbHost } = await import("./db.js");
+  const sessionDb = resolveDatabaseUrl();
+  console.log(`[session] using ${sessionDb.source} host=${describeDbHost(sessionDb.url)}`);
   const PgSession = connectPgSimple(session);
   const pool = new Pool({
-    connectionString: process.env.PROD_DATABASE_URL || process.env.DATABASE_URL,
+    connectionString: sessionDb.url,
     ssl: { rejectUnauthorized: false },
   });
 

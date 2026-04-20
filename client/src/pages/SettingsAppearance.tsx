@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Moon, Sun, Monitor, Check } from "lucide-react";
+import { Moon, Sun, Monitor, Check } from "@/components/ui/icons";
 import SettingsLayout from "@/components/SettingsLayout";
 import { useEffect, useState } from "react";
+import { usePageSeo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 type Theme = "light" | "dark" | "system";
@@ -15,6 +16,14 @@ const themeOptions: { value: Theme; icon: typeof Sun; label: string; description
 
 export default function SettingsAppearance() {
   const [theme, setTheme] = useState<Theme>("system");
+
+  usePageSeo({
+    title: "Appearance Settings",
+    description:
+      "Control the visual theme for TraderClaw Skills across light, dark, and system display modes.",
+    canonicalPath: "/settings/appearance",
+    robots: "noindex,nofollow",
+  });
 
   useEffect(() => {
     const stored = localStorage.getItem("theme") as Theme | null;

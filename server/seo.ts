@@ -3,7 +3,72 @@ import { supabase } from "./db.js";
 import * as fs from "fs";
 import * as path from "path";
 
-const SITE_URL = "https://skillhub.space";
+const SITE_URL = "https://skills.traderclaw.ai";
+const SITE_NAME = "TraderClaw Skills";
+const CLI_COMMAND = "tcs";
+const DEFAULT_OG_IMAGE = `${SITE_URL}/ogimage_skills.jpg`;
+
+function normalizeBrandSeoCopy(value: string): string {
+  const normalized = value
+    .replace(/\bSkillHub\b/g, SITE_NAME)
+    .replace(/\bOpenClaw\b/g, "TraderClaw")
+    .replace(/\bshsc\b/g, CLI_COMMAND)
+    .replace(/skillhub\.space/g, "skills.traderclaw.ai");
+
+  if (normalized === "What is TraderClaw Skills?") {
+    return "What Is the TraderClaw Skills Registry?";
+  }
+
+  return normalized;
+}
+
+function normalizeSeoText(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function truncateSeoText(value: string, maxLength = 160): string {
+  const normalized = normalizeSeoText(value);
+  if (!normalized) return "";
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function markdownSeoExcerpt(markdown: string, maxLength = 220): string {
+  return truncateSeoText(
+    markdown
+      .replace(/^---\n[\s\S]*?\n---\n?/m, " ")
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]*)`/g, "$1")
+      .replace(/!\[[^\]]*]\([^)]+\)/g, " ")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^>\s+/gm, "")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\d+\.\s+/gm, "")
+      .replace(/\|/g, " "),
+    maxLength,
+  );
+}
+
+function buildSkillSeoSummary(skill: any, latestVersion: any, ownerHandle: string) {
+  const installCommand = `${CLI_COMMAND} install ${ownerHandle}/${skill.slug}`;
+  const name =
+    normalizeSeoText(latestVersion?.manifest?.name) ||
+    normalizeSeoText(skill.name) ||
+    skill.slug;
+  const baseDescription =
+    normalizeSeoText(latestVersion?.manifest?.description) ||
+    normalizeSeoText(skill.description) ||
+    markdownSeoExcerpt(latestVersion?.skill_md || "", 220) ||
+    `${name} is an official TraderClaw skill available in the registry.`;
+
+  return {
+    name,
+    installCommand,
+    description: truncateSeoText(`${baseDescription} Install with: ${installCommand}`),
+    bodyDescription: baseDescription,
+  };
+}
 
 export async function getBrowsePreRendered(): Promise<string> {
   try {
@@ -19,7 +84,7 @@ export async function getBrowsePreRendered(): Promise<string> {
     const skillListHtml = allSkills.map((s: any) =>
       `<li><a href="/skills/${(s.owner as any)?.handle || "unknown"}/${s.slug}">${escapeHtml(s.name)}</a><p>${escapeHtml(s.description || "No description available")}</p></li>`
     ).join("");
-    return `<article>
+    return normalizeBrandSeoCopy(`<article>
 <h1>Browse OpenClaw Agent Skills</h1>
 <p>Welcome to the SkillHub skills registry. Browse over 1,000 verified and community-contributed OpenClaw agent skills. Each skill extends your AI agent's capabilities with new instructions, tools, and workflows. Skills are published in the open SKILL.md format and can be installed with a single command using the shsc CLI tool.</p>
 <p>SkillHub is the central registry for OpenClaw skills — similar to npm for JavaScript or PyPI for Python, but purpose-built for AI agent skill packages. You can search by name, filter by category, sort by popularity or recent updates, and discover trending skills used by the community.</p>
@@ -36,21 +101,31 @@ export async function getBrowsePreRendered(): Promise<string> {
 <h2>Publishing Your Own Skills</h2>
 <p>Create a SKILL.md file with YAML frontmatter and markdown instructions, then publish it to SkillHub using the CLI (<code>shsc publish</code>) or the web upload form. All published skills go through an automated validation pipeline that checks for security issues, proper formatting, and best practices.</p>
 </section>
-</article>`;
+</article>`);
   } catch {
     return fallbackBrowse();
   }
 }
 
 function fallbackBrowse(): string {
-  return `<article><h1>Browse OpenClaw Agent Skills</h1><p>Welcome to the SkillHub skills registry. Browse over 1,000 verified OpenClaw agent skills. Each skill extends your AI agent's capabilities with new instructions, tools, and workflows. Search by name, filter by category, and install with a single command.</p></article>`;
+  return normalizeBrandSeoCopy(`<article><h1>Browse OpenClaw Agent Skills</h1><p>Welcome to the SkillHub skills registry. Browse over 1,000 verified OpenClaw agent skills. Each skill extends your AI agent's capabilities with new instructions, tools, and workflows. Search by name, filter by category, and install with a single command.</p></article>`);
 }
 
 export async function getSkillPreRendered(owner: string, slug: string): Promise<string> {
   try {
+    const { data: ownerUser } = await supabase
+      .from("users")
+      .select("id, handle")
+      .or(`handle.eq.${owner},id.eq.${owner}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (!ownerUser) return "";
+
     const { data: skill } = await supabase
       .from("skills")
-      .select("id, name, description, downloads")
+      .select("id, name, description, slug, downloads")
+      .eq("owner_id", ownerUser.id)
       .eq("slug", slug)
       .eq("is_public", true)
       .maybeSingle();
@@ -64,22 +139,31 @@ export async function getSkillPreRendered(owner: string, slug: string): Promise<
       .order("created_at", { ascending: false })
       .limit(5);
 
+    const { data: latestVersion } = await supabase
+      .from("skill_versions")
+      .select("manifest, skill_md, version")
+      .eq("skill_id", skill.id)
+      .eq("is_latest", true)
+      .maybeSingle();
+
+    const ownerHandle = ownerUser.handle || owner;
+    const summary = buildSkillSeoSummary(skill, latestVersion, ownerHandle);
     const versionList = (versions || []).map((v: any) => v.version).join(", ");
-    return `<article>
-<h1>${escapeHtml(skill.name)}</h1>
-<p>${escapeHtml(skill.description || "An OpenClaw agent skill available on SkillHub.")}</p>
+    return normalizeBrandSeoCopy(`<article>
+<h1>${escapeHtml(summary.name)}</h1>
+<p>${escapeHtml(summary.bodyDescription)}</p>
 <section>
 <h2>About this Skill</h2>
-<p>This skill is published by ${escapeHtml(owner)} on SkillHub, the OpenClaw skills registry. It can be installed with a single command and extends your AI agent with new capabilities, instructions, and workflows.</p>
+<p>This skill is published by ${escapeHtml(ownerHandle)} in TraderClaw Skills. It can be installed with a single command and extends your agent with new capabilities, instructions, and workflows.</p>
 <p>Downloads: ${skill.downloads || 0}${versionList ? `. Available versions: ${escapeHtml(versionList)}` : ""}</p>
 </section>
 <section>
 <h2>Installation</h2>
-<p>Install this skill using the shsc CLI: <code>shsc install ${escapeHtml(owner)}/${escapeHtml(slug)}</code></p>
+<p>Install this skill using the shsc CLI: <code>${escapeHtml(summary.installCommand)}</code></p>
 <p>Or download it directly from this page using the ZIP download button.</p>
 </section>
-<nav><a href="/browse">Browse more skills</a> | <a href="/skills/${escapeHtml(owner)}">View ${escapeHtml(owner)}'s profile</a></nav>
-</article>`;
+<nav><a href="/browse">Browse more skills</a> | <a href="/users/${escapeHtml(ownerHandle)}">View ${escapeHtml(ownerHandle)}'s profile</a></nav>
+</article>`);
   } catch {
     return "";
   }
@@ -107,8 +191,10 @@ export async function getUserPreRendered(handle: string): Promise<{ content: str
     ).join("");
     const userHandle = user.handle || handle;
     const userBio = user.bio || "";
-    const title = `${escapeHtml(userHandle)} - SkillHub`;
-    const description = userBio ? escapeHtml(userBio) : `${escapeHtml(userHandle)}'s profile on SkillHub — OpenClaw skills registry`;
+    const title = `${escapeHtml(userHandle)} | ${SITE_NAME}`;
+    const description = userBio
+      ? escapeHtml(userBio)
+      : `${escapeHtml(userHandle)}'s profile on ${SITE_NAME} — discover published TraderClaw skills and registry activity.`;
     const content = `<h1>${escapeHtml(userHandle)}</h1>${userBio ? `<p>${escapeHtml(userBio)}</p>` : ""}<h2>Skills</h2><ul>${skillLinks || "<li>No public skills yet</li>"}</ul>`;
     return { content, title, description };
   } catch {
@@ -116,7 +202,7 @@ export async function getUserPreRendered(handle: string): Promise<{ content: str
   }
 }
 
-export const docsPreRendered: Record<string, { title: string; description: string; content: string }> = {
+const rawDocsPreRendered: Record<string, { title: string; description: string; content: string }> = {
   "/docs": {
     title: "Documentation - SkillHub",
     description: "SkillHub documentation — learn how to discover, create, publish, and install OpenClaw agent skills.",
@@ -274,6 +360,18 @@ export const docsPreRendered: Record<string, { title: string; description: strin
   },
 };
 
+export const docsPreRendered: Record<string, { title: string; description: string; content: string }> =
+  Object.fromEntries(
+    Object.entries(rawDocsPreRendered).map(([route, entry]) => [
+      route,
+      {
+        title: normalizeBrandSeoCopy(entry.title),
+        description: normalizeBrandSeoCopy(entry.description),
+        content: normalizeBrandSeoCopy(entry.content),
+      },
+    ]),
+  );
+
 export function registerSeoRoutes(app: Express) {
   app.get("/googlea56817ef47caeebd.html", (_req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/html");
@@ -351,28 +449,44 @@ Sitemap: ${SITE_URL}/sitemap.xml
 
 export async function getSkillMetaTags(owner: string, slug: string): Promise<{ title: string; description: string; url: string; jsonLd: string } | null> {
   try {
+    const { data: ownerUser } = await supabase
+      .from("users")
+      .select("id, handle, first_name")
+      .or(`handle.eq.${owner},id.eq.${owner}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (!ownerUser) return null;
+
     const { data: result } = await supabase
       .from("skills")
-      .select("name, description, slug, stars, downloads, is_public, owner:users!owner_id(handle, first_name)")
+      .select("id, name, description, slug, stars, downloads, is_public, owner:users!owner_id(handle, first_name)")
+      .eq("owner_id", ownerUser.id)
       .eq("slug", slug)
       .eq("is_public", true)
       .maybeSingle();
 
     if (!result) return null;
 
+    const { data: latestVersion } = await supabase
+      .from("skill_versions")
+      .select("manifest, skill_md, version")
+      .eq("skill_id", result.id)
+      .eq("is_latest", true)
+      .maybeSingle();
+
     const ownerData = result.owner as any;
-    const ownerHandle = ownerData?.handle || owner;
-    const title = `${result.name} - SkillHub`;
-    const description = result.description
-      ? `${result.description} — Install with: shsc install ${ownerHandle}/${result.slug}`
-      : `${result.name} — an OpenClaw agent skill on SkillHub. Install with: shsc install ${ownerHandle}/${result.slug}`;
+    const ownerHandle = ownerData?.handle || ownerUser.handle || owner;
+    const summary = buildSkillSeoSummary(result, latestVersion, ownerHandle);
+    const title = `${summary.name} | ${SITE_NAME}`;
+    const description = summary.description;
     const url = `${SITE_URL}/skills/${ownerHandle}/${result.slug}`;
 
     const jsonLd = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": result.name,
-      "description": result.description || `${result.name} - an OpenClaw agent skill`,
+      "name": summary.name,
+      "description": summary.bodyDescription,
       "url": url,
       "applicationCategory": "AI Agent Skill",
       "operatingSystem": "Any",
@@ -389,7 +503,7 @@ export async function getSkillMetaTags(owner: string, slug: string): Promise<{ t
       } : undefined,
       "author": {
         "@type": "Person",
-        "name": ownerData?.first_name || ownerHandle,
+        "name": ownerData?.first_name || ownerUser.first_name || ownerHandle,
       },
     }).replace(/<\//g, "<\\/");
 
@@ -402,8 +516,12 @@ export async function getSkillMetaTags(owner: string, slug: string): Promise<{ t
 
 export function injectMetaTags(
   html: string,
-  meta: { title: string; description: string; url: string; jsonLd: string; preRenderedContent?: string }
+  meta: { title: string; description: string; url: string; jsonLd: string; preRenderedContent?: string; image?: string; imageAlt?: string }
 ): string {
+  const image = meta.image || DEFAULT_OG_IMAGE;
+  const imageAlt =
+    meta.imageAlt || "TraderClaw Skills preview with TraderClaw branding and the line Where Skills Become Edge";
+
   html = html.replace(
     /<title>.*?<\/title>/,
     `<title>${escapeHtml(meta.title)}</title>`
@@ -431,6 +549,14 @@ export function injectMetaTags(
     /<meta property="og:url" content=".*?" \/>/,
     `<meta property="og:url" content="${meta.url}" />`
   );
+  html = html.replace(
+    /<meta property="og:image" content=".*?" \/>/,
+    `<meta property="og:image" content="${image}" />`
+  );
+  html = html.replace(
+    /<meta property="og:image:alt" content=".*?" \/>/,
+    `<meta property="og:image:alt" content="${escapeAttr(imageAlt)}" />`
+  );
 
   html = html.replace(
     /<meta name="twitter:title" content=".*?" \/>/,
@@ -439,6 +565,14 @@ export function injectMetaTags(
   html = html.replace(
     /<meta name="twitter:description" content=".*?" \/>/,
     `<meta name="twitter:description" content="${escapeAttr(meta.description)}" />`
+  );
+  html = html.replace(
+    /<meta name="twitter:image" content=".*?" \/>/,
+    `<meta name="twitter:image" content="${image}" />`
+  );
+  html = html.replace(
+    /<meta name="twitter:image:alt" content=".*?" \/>/,
+    `<meta name="twitter:image:alt" content="${escapeAttr(imageAlt)}" />`
   );
 
   html = html.replace(

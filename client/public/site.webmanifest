@@ -1,0 +1,51 @@
+{
+  "name": "TraderClaw SkillHub",
+  "short_name": "SkillHub",
+  "icons": [
+    {
+      "src": "/favicon_518.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon_16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon_32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon_64.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon_128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon_256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon_518.png",
+      "sizes": "518x518",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#171212",
+  "background_color": "#171212",
+  "display": "standalone"
+}

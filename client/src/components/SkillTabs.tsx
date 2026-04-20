@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Code, MessageCircle, GitPullRequest, Download, GitFork, Clock, CheckCircle, XCircle, Plus, Pencil, X, Save, Trash2, ShieldCheck, AlertTriangle, FolderOpen } from "lucide-react";
+import { Code, MessageCircle, GitPullRequest, Download, GitFork, Clock, CheckCircle, XCircle, Plus, Pencil, X, Save, Trash2, ShieldCheck, AlertTriangle, FolderOpen } from "@/components/ui/icons";
 import { FileBrowser } from "./FileBrowser";
 import { CopyButton } from "./CopyButton";
 import { useLocation } from "wouter";
+import { FRONTEND_ONLY_PREVIEW, downloadTextAsset } from "@/lib/frontend-only";
 
 interface SkillTabsProps {
   skill: any;
@@ -216,27 +218,32 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
     ? skill.versions?.find((v: any) => v.version === selectedVersion)
     : skill.versions?.[0];
 
+  const downloadVersionPreview = (version: any) => {
+    downloadTextAsset(version?.skillMd || "", `${slug}-${version?.version || "latest"}-SKILL.md`, "text/markdown;charset=utf-8");
+    toast({ title: "Preview download ready", description: "Downloaded the current SKILL.md file from mock data." });
+  };
+
   return (
     <Tabs defaultValue="code" className="w-full">
-      <div className="flex items-center justify-between mb-4">
-        <TabsList>
-          <TabsTrigger value="code" className="gap-2">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <TabsList className="w-full overflow-x-auto sm:w-auto">
+          <TabsTrigger value="code" className="min-w-[6.25rem] flex-1 gap-2 sm:flex-none">
             <Code className="h-4 w-4" />
             Code
           </TabsTrigger>
-          <TabsTrigger value="issues" className="gap-2">
+          <TabsTrigger value="issues" className="min-w-[6.25rem] flex-1 gap-2 sm:flex-none">
             <MessageCircle className="h-4 w-4" />
             Issues
             {issues?.length > 0 && <Badge variant="secondary" className="ml-1">{issues.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="pulls" className="gap-2">
+          <TabsTrigger value="pulls" className="min-w-[7.2rem] flex-1 gap-2 sm:flex-none">
             <GitPullRequest className="h-4 w-4" />
             Pull Requests
             {pulls?.length > 0 && <Badge variant="secondary" className="ml-1">{pulls.length}</Badge>}
           </TabsTrigger>
         </TabsList>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button 
             variant="outline" 
             size="sm" 
@@ -330,54 +337,73 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
       )}
 
       <TabsContent value="code" className="space-y-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Versions</CardTitle>
-              <select 
-                className="border rounded px-3 py-1 text-sm"
+        <Card className="border-border bg-card/40">
+          <CardHeader className="gap-4 border-b border-border/70 pb-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-lg text-foreground">Versions</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Browse published releases and switch the code view instantly.
+              </p>
+            </div>
+            <div className="w-full md:w-56">
+              <Select
                 value={selectedVersion || displayedVersion?.version || ""}
-                onChange={(e) => setSelectedVersion(e.target.value)}
+                onValueChange={setSelectedVersion}
               >
-                {skill.versions?.map((v: any) => (
-                  <option key={v.id} value={v.version}>
-                    {v.version} {v.isLatest && "(latest)"}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-11 border-border/80 bg-background/70 font-mono text-sm">
+                  <SelectValue placeholder="Select version" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {skill.versions?.map((v: any) => (
+                    <SelectItem key={v.id} value={v.version} className="font-mono text-sm">
+                      {v.version} {v.isLatest ? "LATEST" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-3">
               {skill.versions?.map((version: any) => (
                 <div
                   key={version.id}
-                  className={`flex items-center justify-between p-3 rounded-lg transition-colors cursor-pointer ${
+                  className={`flex flex-col gap-4 border p-4 transition-all duration-200 cursor-pointer md:flex-row md:items-center md:justify-between ${
                     (selectedVersion || displayedVersion?.version) === version.version 
-                      ? "bg-primary/10 border border-primary/20" 
-                      : "bg-muted/50 hover:bg-muted"
+                      ? "border-primary/35 bg-primary/6 shadow-[inset_0_0_0_1px_rgba(255,82,52,0.08)]" 
+                      : "border-border/70 bg-background/35 hover:border-primary/20 hover:bg-background/55"
                   }`}
                   onClick={() => setSelectedVersion(version.version)}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-medium">{version.version}</span>
-                    {version.isLatest && <Badge variant="default">Latest</Badge>}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-mono text-sm font-medium tracking-[0.08em] text-foreground">{version.version}</span>
+                    {version.isLatest && (
+                      <Badge variant="outline" className="border-primary/30 bg-primary/8 font-mono text-[10px] uppercase tracking-[0.16em] text-primary">
+                        Latest
+                      </Badge>
+                    )}
                     {version.isYanked && <Badge variant="destructive">Yanked</Badge>}
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4 md:justify-end">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Download className="h-4 w-4" />
-                      {version.downloads || 0}
+                      {(version.downloads || 0).toLocaleString()}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
                       {new Date(version.publishedAt).toLocaleDateString()}
                     </div>
-                    <Button variant="ghost" size="sm" asChild>
-                      <a href={`/api/skills/${owner}/${slug}/download/${version.version}`} download>
+                    {FRONTEND_ONLY_PREVIEW ? (
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => downloadVersionPreview(version)}>
                         <Download className="h-4 w-4" />
-                      </a>
-                    </Button>
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" asChild>
+                        <a href={`/api/skills/${owner}/${slug}/download/${version.version}`} download>
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -393,13 +419,13 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
         />
 
         {displayedVersion?.skillMd && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <Card className="border-border bg-card/40">
+            <CardHeader className="flex flex-col gap-4 border-b border-border/70 pb-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <CardTitle className="text-lg font-mono">SKILL.md</CardTitle>
                 {isEditing && <Badge variant="secondary">Editing</Badge>}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {!isEditing ? (
                   <>
                     {isOwner && (
@@ -417,12 +443,19 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
                         Propose Changes
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={`/api/skills/${owner}/${slug}/download/${displayedVersion.version}`} download className="gap-2">
+                    {FRONTEND_ONLY_PREVIEW ? (
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadVersionPreview(displayedVersion)}>
                         <Download className="h-4 w-4" />
                         Download
-                      </a>
-                    </Button>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={`/api/skills/${owner}/${slug}/download/${displayedVersion.version}`} download className="gap-2">
+                          <Download className="h-4 w-4" />
+                          Download
+                        </a>
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -440,16 +473,16 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
                   <Textarea 
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
-                    className="font-mono text-sm min-h-[400px]"
+                    className="min-h-[320px] font-mono text-sm sm:min-h-[400px]"
                     placeholder="Enter your SKILL.md content..."
                   />
                   
-                  <Card className="border-2 border-dashed">
+                  <Card className="border border-border/70 bg-background/35">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">Commit changes</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
                         <div>
                           <label className="text-sm text-muted-foreground block mb-1">New Version</label>
                           <Input 
@@ -468,7 +501,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
                           />
                         </div>
                       </div>
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                         <Button variant="outline" onClick={cancelEditing}>
                           Cancel
                         </Button>
@@ -486,12 +519,12 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
                 </div>
               ) : (
                 <div className="relative">
-                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm whitespace-pre-wrap font-mono pr-12">
+                  <pre className="overflow-x-auto border border-border/70 bg-black/30 p-4 pr-12 font-mono text-sm whitespace-pre-wrap text-foreground">
                     {displayedVersion.skillMd}
                   </pre>
                   <CopyButton 
                     text={displayedVersion.skillMd} 
-                    className="absolute top-2 right-2"
+                    className="absolute top-2 right-2 border border-border/70 bg-background/70 hover:bg-background"
                   />
                 </div>
               )}
@@ -512,7 +545,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
       </TabsContent>
 
       <TabsContent value="issues" className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-semibold">Issues</h3>
           {user && (
             <Button size="sm" className="gap-2" onClick={() => setShowNewIssue(!showNewIssue)}>
@@ -536,7 +569,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
                 onChange={(e) => setIssueBody(e.target.value)}
                 rows={4}
               />
-              <div className="flex gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button onClick={() => createIssueMutation.mutate()} disabled={!issueTitle || createIssueMutation.isPending}>
                   Create Issue
                 </Button>
@@ -582,7 +615,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
       </TabsContent>
 
       <TabsContent value="pulls" className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-semibold">Pull Requests</h3>
           {user && (
             <Button size="sm" className="gap-2" onClick={() => setShowNewPR(!showNewPR)}>
@@ -616,7 +649,7 @@ export function SkillTabs({ skill, owner, slug }: SkillTabsProps) {
                   className="font-mono text-sm"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button onClick={() => createPRMutation.mutate()} disabled={!prTitle || !prSkillMd || createPRMutation.isPending}>
                   Create Pull Request
                 </Button>

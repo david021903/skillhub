@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PageIntro } from "@/components/PageIntro";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +33,6 @@ import {
   Eye,
   EyeOff,
   Archive,
-  Shield,
   Activity,
   TrendingUp,
   UserPlus,
@@ -40,7 +40,8 @@ import {
   RefreshCw,
   X,
   Download,
-} from "lucide-react";
+} from "@/components/ui/icons";
+import { usePageSeo } from "@/lib/seo";
 
 type ActivityEvent = {
   type: string;
@@ -158,6 +159,14 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  usePageSeo({
+    title: "Admin Dashboard",
+    description:
+      "Monitor TraderClaw Skills users, activity, comments, moderation actions, and registry growth from the admin console.",
+    canonicalPath: "/admin",
+    robots: "noindex,nofollow",
+  });
+
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     queryFn: async () => {
@@ -242,22 +251,24 @@ export default function AdminDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Shield className="h-8 w-8 text-primary" />
-            Admin Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1">Platform overview and moderation tools</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-          refetchActivity();
-        }}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageIntro
+        tag="ADMIN DASHBOARD"
+        title="Monitor Registry Activity"
+        description="Review growth, moderation signals, and platform activity across TraderClaw Skills."
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+              refetchActivity();
+            }}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
@@ -373,7 +384,7 @@ export default function AdminDashboard() {
                 <div className="space-y-3">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="animate-pulse flex gap-3 p-3">
-                      <div className="h-8 w-8 bg-muted rounded-full" />
+                      <div className="h-8 w-8 bg-muted" />
                       <div className="flex-1 space-y-2">
                         <div className="h-4 bg-muted rounded w-3/4" />
                         <div className="h-3 bg-muted rounded w-1/2" />
@@ -402,7 +413,7 @@ export default function AdminDashboard() {
                             className="mt-1"
                           />
                         )}
-                        <div className={`p-1.5 rounded-full ${colorClass} shrink-0`}>
+                        <div className={`shrink-0 border border-border p-1.5 ${colorClass}`}>
                           <Icon className="h-3.5 w-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -587,9 +598,9 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 {userDetail.user.profileImageUrl ? (
-                  <img src={userDetail.user.profileImageUrl} alt="" className="h-12 w-12 rounded-full" />
+                  <img src={userDetail.user.profileImageUrl} alt="" className="h-12 w-12 object-cover" />
                 ) : (
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                  <div className="flex h-12 w-12 items-center justify-center bg-primary/10 text-lg font-bold text-primary">
                     {userDetail.user.handle?.[0]?.toUpperCase() || "U"}
                   </div>
                 )}

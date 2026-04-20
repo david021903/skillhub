@@ -11,7 +11,7 @@ import { Pool } from "pg";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 5000;
+const PORT = Number.parseInt(process.env.PORT || "5000", 10) || 5000;
 
 // Create Express app
 const app = express();
@@ -207,15 +207,15 @@ async function initializeApp() {
           const html = fs.readFileSync(indexPath, "utf-8");
           const browseContent = await getBrowsePreRendered();
           return res.send(injectMetaTags(html, {
-            title: "Browse Skills - SkillHub",
-            description: "Browse 1000+ OpenClaw agent skills. Search, filter, and discover skills for your AI agents.",
-            url: "https://skillhub.space/browse",
+            title: "Browse Skills | TraderClaw Skills",
+            description: "Browse official TraderClaw Skills by category, popularity, downloads, and trending momentum on skills.traderclaw.ai.",
+            url: "https://skills.traderclaw.ai/browse",
             jsonLd: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "CollectionPage",
-              "name": "Browse Skills",
-              "url": "https://skillhub.space/browse",
-              "description": "Browse 1000+ OpenClaw agent skills",
+              "name": "Browse Skills | TraderClaw Skills",
+              "url": "https://skills.traderclaw.ai/browse",
+              "description": "Browse official TraderClaw Skills by category, popularity, downloads, and trending momentum.",
             }),
             preRenderedContent: browseContent,
           }));
@@ -227,38 +227,38 @@ async function initializeApp() {
         try {
           const html = fs.readFileSync(indexPath, "utf-8");
           return res.send(injectMetaTags(html, {
-            title: "SkillHub - OpenClaw Skills Registry",
-            description: "Discover, share, and install AI agent skills. SkillHub is the registry for OpenClaw skills — browse 1000+ verified skills, publish your own, and supercharge your agents.",
-            url: "https://skillhub.space/",
+            title: "TraderClaw Skills | Official Skill Registry",
+            description: "Discover, publish, validate, and install official TraderClaw Skills on the registry at skills.traderclaw.ai.",
+            url: "https://skills.traderclaw.ai/",
             jsonLd: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
-              "name": "SkillHub",
-              "url": "https://skillhub.space",
-              "description": "The OpenClaw Skills Registry — discover, share, and install AI agent skills",
+              "name": "TraderClaw Skills",
+              "url": "https://skills.traderclaw.ai",
+              "description": "The official TraderClaw Skills registry for discovering, publishing, validating, and installing agent skills.",
               "potentialAction": {
                 "@type": "SearchAction",
-                "target": "https://skillhub.space/browse?search={search_term_string}",
+                "target": "https://skills.traderclaw.ai/browse?search={search_term_string}",
                 "query-input": "required name=search_term_string",
               },
             }),
             preRenderedContent: `<article>
-<h1>SkillHub — The OpenClaw Skills Registry</h1>
-<p>Discover, share, and install AI agent skills. SkillHub is the central registry for OpenClaw skills — similar to how npm works for JavaScript or PyPI works for Python, but purpose-built for AI agent skill packages.</p>
+<h1>TraderClaw Skills — The Official Registry</h1>
+<p>Discover, publish, validate, and install official TraderClaw Skills. The registry is purpose-built for agent capabilities, reusable workflows, and structured SKILL.md packages.</p>
 <p>Browse over 1,000 verified and community-contributed skills. Each skill extends your AI agent's capabilities with new instructions, tools, and workflows. Skills are published in the open SKILL.md format and can be installed with a single command.</p>
 <section>
-<h2>What is SkillHub?</h2>
-<p>SkillHub is a platform where developers and AI enthusiasts can discover, publish, and manage OpenClaw agent skills. Think of it as GitHub meets npm — you can browse a library of skills, star your favorites, fork and improve community skills, and publish your own creations for others to use.</p>
+<h2>What Is the TraderClaw Skills Registry?</h2>
+<p>TraderClaw Skills is a platform where builders and operators can discover, publish, and manage TraderClaw agent skills. Browse a growing library of skills, star your favorites, improve community packages, and publish your own workflows for others to install.</p>
 </section>
 <section>
 <h2>Getting Started</h2>
-<p>Install the shsc command-line tool with <code>npm install -g shsc</code>, then run <code>shsc search</code> to find skills or <code>shsc install owner/skill-name</code> to install one. You can also browse and install skills directly from this website without any setup.</p>
+<p>Install the TraderClaw CLI with <code>npm install -g tcs</code>, then run <code>tcs search</code> to find skills or <code>tcs install owner/skill-name</code> to install one. You can also browse and install skills directly from this website without any setup.</p>
 </section>
 <section>
 <h2>Key Features</h2>
 <ul>
 <li>Browse and search over 1,000 skills with filtering and sorting</li>
-<li>One-command installation via the shsc CLI tool</li>
+<li>One-command installation via the tcs CLI tool</li>
 <li>Automatic validation pipeline for security and quality</li>
 <li>Version management with semantic versioning</li>
 <li>Issues and pull requests for community collaboration</li>
@@ -278,12 +278,12 @@ async function initializeApp() {
             return res.send(injectMetaTags(html, {
               title: docsPage.title,
               description: docsPage.description,
-              url: `https://skillhub.space${req.path}`,
+              url: `https://skills.traderclaw.ai${req.path}`,
               jsonLd: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "WebPage",
                 "name": docsPage.title,
-                "url": `https://skillhub.space${req.path}`,
+                "url": `https://skills.traderclaw.ai${req.path}`,
               }),
               preRenderedContent: docsPage.content,
             }));
@@ -300,12 +300,12 @@ async function initializeApp() {
             return res.send(injectMetaTags(html, {
               title: userData.title,
               description: userData.description,
-              url: `https://skillhub.space${req.path}`,
+              url: `https://skills.traderclaw.ai${req.path}`,
               jsonLd: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "ProfilePage",
                 "name": userData.title,
-                "url": `https://skillhub.space${req.path}`,
+                "url": `https://skills.traderclaw.ai${req.path}`,
               }),
               preRenderedContent: userData.content,
             }));

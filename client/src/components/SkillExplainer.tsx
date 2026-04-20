@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, BookOpen, Target, CheckCircle, Rocket, Key } from "lucide-react";
+import { Loader2, Bot, BookOpen, Target, CheckCircle, Rocket, Key } from "@/components/ui/icons";
 import { Link } from "wouter";
 
 interface ExplainerResult {
@@ -50,12 +50,12 @@ export function SkillExplainer({ skillMd }: SkillExplainerProps) {
 
   if (!explanation && !explainMutation.isPending) {
     return (
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="border-border bg-card/40">
+        <CardContent className="px-8 py-12">
           <div className="text-center">
-            <Sparkles className="h-12 w-12 mx-auto text-primary/50 mb-4" />
+            <Bot className="mx-auto mb-5 h-10 w-10 text-primary/65" />
             <h3 className="font-semibold text-lg mb-2">AI Skill Explainer</h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="mx-auto mb-5 max-w-md text-muted-foreground">
               Get a plain-English explanation of what this skill does
             </p>
             {needsApiKey || explainMutation.error?.message?.toLowerCase().includes("api key") ? (
@@ -74,13 +74,11 @@ export function SkillExplainer({ skillMd }: SkillExplainerProps) {
               <div className="space-y-3">
                 <p className="text-sm text-destructive">{explainMutation.error.message}</p>
                 <Button onClick={() => explainMutation.mutate()}>
-                  <Sparkles className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
               </div>
             ) : (
               <Button onClick={() => explainMutation.mutate()}>
-                <Sparkles className="h-4 w-4 mr-2" />
                 Explain This Skill
               </Button>
             )}
@@ -92,8 +90,8 @@ export function SkillExplainer({ skillMd }: SkillExplainerProps) {
 
   if (explainMutation.isPending) {
     return (
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="border-border bg-card/40">
+        <CardContent className="py-10">
           <div className="flex items-center justify-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span>Analyzing skill...</span>
@@ -106,14 +104,14 @@ export function SkillExplainer({ skillMd }: SkillExplainerProps) {
   if (!explanation) return null;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-border bg-card/40">
+      <CardHeader className="pt-8">
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
+          <Bot className="h-5 w-5 text-primary/75" />
           AI Explanation
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-8 pb-8">
         <div>
           <h4 className="font-medium flex items-center gap-2 mb-2">
             <BookOpen className="h-4 w-4" />

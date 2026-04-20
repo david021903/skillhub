@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import { MessageSquare, Send, Trash2, Loader2 } from "lucide-react";
+import { Send, Trash2, Loader2 } from "@/components/ui/icons";
 
 interface Comment {
   id: string;
@@ -112,8 +112,7 @@ export function SkillComments({ skillId, currentUserId }: SkillCommentsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <MessageSquare className="h-5 w-5" />
+      <div>
         <h3 className="text-lg font-semibold">Comments ({comments.length})</h3>
       </div>
 

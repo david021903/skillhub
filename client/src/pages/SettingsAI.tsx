@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Wand2, MessageSquare, FileText, ExternalLink, Key, Check, AlertCircle, Loader2 } from "lucide-react";
+import { Sparkles, Wand2, MessageSquare, FileText, ExternalLink, Key, Check, AlertCircle, Loader2 } from "@/components/ui/icons";
 import SettingsLayout from "@/components/SettingsLayout";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { usePageSeo } from "@/lib/seo";
 
 const aiFeatures = [
   {
@@ -38,6 +38,14 @@ export default function SettingsAI() {
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState("");
   const [showKeyInput, setShowKeyInput] = useState(false);
+
+  usePageSeo({
+    title: "AI Settings",
+    description:
+      "Configure your OpenAI key and manage AI-powered TraderClaw Skills tools like generation, chat, and explanations.",
+    canonicalPath: "/settings/ai",
+    robots: "noindex,nofollow",
+  });
 
   const handleSaveKey = async () => {
     if (!apiKey.trim()) {
@@ -177,8 +185,16 @@ export default function SettingsAI() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium">{feature.title}</h3>
-                        <Badge variant={hasKey ? "default" : "secondary"} className={hasKey ? "text-xs bg-green-600" : "text-xs"}>
-                          {hasKey ? "Ready" : "Needs API Key"}
+                        <Badge
+                          variant="outline"
+                          className={
+                            hasKey
+                              ? "border-primary/18 bg-primary/8 text-[10px] uppercase tracking-[0.16em] text-primary"
+                              : "border-border/70 bg-muted/25 text-[10px] uppercase tracking-[0.16em] text-muted-foreground"
+                          }
+                          style={{ fontFamily: "var(--font-mono)" }}
+                        >
+                          {hasKey ? "READY" : "API KEY REQUIRED"}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -219,30 +235,6 @@ export default function SettingsAI() {
             </ul>
           </CardContent>
         </Card>
-
-        {hasKey && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Access</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                <Link href="/generate">
-                  <Button className="gap-2">
-                    <Wand2 className="h-4 w-4" />
-                    Open AI Generator
-                  </Button>
-                </Link>
-                <Link href="/browse">
-                  <Button variant="outline" className="gap-2">
-                    <FileText className="h-4 w-4" />
-                    Browse Skills (for Explainer & Chat)
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </SettingsLayout>
   );

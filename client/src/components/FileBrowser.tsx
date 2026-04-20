@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   File, Folder, FolderOpen, ChevronRight, ChevronDown, 
   FileText, FileCode, FileJson, Download, Copy, Eye 
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { useToast } from "@/hooks/use-toast";
+import { FRONTEND_ONLY_PREVIEW } from "@/lib/frontend-only";
 
 interface FileInfo {
   id: string;
@@ -127,7 +128,7 @@ function FileTreeNode({
     return (
       <div>
         <button
-          className="flex items-center gap-1 px-2 py-1 w-full text-left hover:bg-accent rounded text-sm"
+          className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-sm hover:bg-accent"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           onClick={() => setIsOpen(!isOpen)}
         >
@@ -158,7 +159,7 @@ function FileTreeNode({
 
   return (
     <button
-      className={`flex items-center gap-2 px-2 py-1 w-full text-left hover:bg-accent rounded text-sm ${
+      className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent ${
         isSelected ? "bg-accent" : ""
       }`}
       style={{ paddingLeft: `${depth * 12 + 24}px` }}
@@ -222,7 +223,7 @@ function FileViewer({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+        <div className="h-6 w-6 animate-spin border-2 border-primary border-r-transparent" />
       </div>
     );
   }
@@ -250,9 +251,9 @@ function FileViewer({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-2 border-b bg-muted/30">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{filePath}</span>
+      <div className="flex flex-col gap-3 border-b bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium">{filePath}</span>
           <Badge variant="secondary" className="text-xs">
             {formatFileSize(fileContent.size)}
           </Badge>
@@ -278,6 +279,7 @@ function FileViewer({
 export function FileBrowser({ owner, slug, version }: FileBrowserProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"tree" | "list">("tree");
+  const { toast } = useToast();
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/skills", owner, slug, "files", version],
@@ -295,16 +297,13 @@ export function FileBrowser({ owner, slug, version }: FileBrowserProps) {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="border-border bg-card/40">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Folder className="h-5 w-5" />
-            Files
-          </CardTitle>
+          <CardTitle className="text-lg text-foreground">Files</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-64 flex items-center justify-center">
-            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            <div className="h-6 w-6 animate-spin border-2 border-primary border-r-transparent" />
           </div>
         </CardContent>
       </Card>
@@ -312,44 +311,76 @@ export function FileBrowser({ owner, slug, version }: FileBrowserProps) {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Folder className="h-5 w-5" />
-            Files
-            <Badge variant="secondary" className="ml-2">
-              {data?.totalFiles || 0} files
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              {formatFileSize(data?.totalSize || 0)}
-            </Badge>
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 gap-1"
-              asChild
-            >
-              <a href={`/api/skills/${owner}/${slug}/download-zip${version ? `/${version}` : ""}`} download>
+    <Card className="border-border bg-card/40">
+      <CardHeader className="gap-4 border-b border-border/70 pb-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <CardTitle className="text-lg text-foreground">Files</CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="inline-flex h-11 items-center border border-border/80 bg-background/60 px-4 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                {(data?.totalFiles || 0).toLocaleString()} Files
+              </span>
+              <span
+                className="inline-flex h-11 items-center border border-border/80 bg-background/60 px-4 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                {formatFileSize(data?.totalSize || 0)}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {FRONTEND_ONLY_PREVIEW ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 gap-2 border-border/80 bg-background/60 px-4 font-mono text-[0.7rem] uppercase tracking-[0.16em]"
+                onClick={() => {
+                  toast({
+                    title: "ZIP export disabled in preview",
+                    description: "Individual file downloads still work in frontend-only mode.",
+                  });
+                }}
+              >
                 <Download className="h-4 w-4" />
                 Download ZIP
-              </a>
-            </Button>
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "tree" | "list")}>
-              <TabsList className="h-8">
-                <TabsTrigger value="tree" className="text-xs px-2">Tree</TabsTrigger>
-                <TabsTrigger value="list" className="text-xs px-2">List</TabsTrigger>
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-11 gap-2 border-border/80 bg-background/60 px-4 font-mono text-[0.7rem] uppercase tracking-[0.16em]"
+                asChild
+              >
+                <a href={`/api/skills/${owner}/${slug}/download-zip${version ? `/${version}` : ""}`} download>
+                  <Download className="h-4 w-4" />
+                  Download ZIP
+                </a>
+              </Button>
+            )}
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "tree" | "list")} className="w-full sm:w-auto">
+              <TabsList className="h-11 w-full border border-border/80 bg-background/60 p-1 sm:w-auto">
+                <TabsTrigger
+                  value="tree"
+                  className="min-h-[2.05rem] min-w-[4.75rem] flex-1 px-4 font-mono text-[0.7rem] uppercase tracking-[0.16em] sm:flex-none"
+                >
+                  Tree
+                </TabsTrigger>
+                <TabsTrigger
+                  value="list"
+                  className="min-h-[2.05rem] min-w-[4.75rem] flex-1 px-4 font-mono text-[0.7rem] uppercase tracking-[0.16em] sm:flex-none"
+                >
+                  List
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 border-t">
-          <div className="border-r">
-            <ScrollArea className="h-[400px]">
+        <div className="grid grid-cols-1 xl:grid-cols-3">
+          <div className="border-b border-border/70 xl:border-b-0 xl:border-r xl:border-r-border/70">
+            <ScrollArea className="h-[320px] sm:h-[360px] xl:h-[400px]">
               <div className="p-2">
                 {viewMode === "tree" ? (
                   fileTree.map((node) => (
@@ -364,7 +395,7 @@ export function FileBrowser({ owner, slug, version }: FileBrowserProps) {
                   files.map((file: FileInfo) => (
                     <button
                       key={file.path}
-                      className={`flex items-center gap-2 px-2 py-1 w-full text-left hover:bg-accent rounded text-sm ${
+                      className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent ${
                         selectedFile === file.path ? "bg-accent" : ""
                       }`}
                       onClick={() => setSelectedFile(file.path)}
@@ -383,7 +414,7 @@ export function FileBrowser({ owner, slug, version }: FileBrowserProps) {
               </div>
             </ScrollArea>
           </div>
-          <div className="md:col-span-2 h-[400px]">
+          <div className="h-[320px] sm:h-[360px] xl:col-span-2 xl:h-[400px]">
             {selectedFile ? (
               <FileViewer 
                 owner={owner} 

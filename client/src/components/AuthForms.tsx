@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Mail, Lock, User, Chrome, Github } from "lucide-react";
+import { Loader2, Chrome, Github } from "@/components/ui/icons";
 import { useToast } from "@/hooks/use-toast";
+import { FRONTEND_ONLY_PREVIEW } from "@/lib/frontend-only";
 
 interface AuthFormsProps {
   defaultTab?: "login" | "register";
@@ -27,6 +27,10 @@ export function AuthForms({ defaultTab = "login", onSuccess }: AuthFormsProps) {
     firstName: "",
     lastName: "",
   });
+
+  useEffect(() => {
+    setTab(defaultTab);
+  }, [defaultTab]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,87 +64,98 @@ export function AuthForms({ defaultTab = "login", onSuccess }: AuthFormsProps) {
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = "/api/auth/google";
-  };
+  const handlePreviewProviderLogin = async (provider: "google" | "github") => {
+    if (FRONTEND_ONLY_PREVIEW) {
+      try {
+        await login({
+          email: `preview+${provider}@skillhub.space`,
+          password: "preview-mode",
+        });
+        toast({ title: `${provider === "google" ? "Google" : "GitHub"} preview sign-in ready` });
+        onSuccess?.();
+      } catch (error: any) {
+        toast({ title: "Sign-in failed", description: error.message, variant: "destructive" });
+      }
+      return;
+    }
 
-  const handleGithubLogin = () => {
-    window.location.href = "/api/auth/github";
+    window.location.href = provider === "google" ? "/api/auth/google" : "/api/auth/github";
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <div className="w-full bg-card">
       <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "register")}>
-        <CardHeader className="pb-0">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Sign In</TabsTrigger>
-            <TabsTrigger value="register">Create Account</TabsTrigger>
+        <div className="border-b border-border/80 p-4 sm:p-5">
+          <TabsList className="grid w-full grid-cols-2 border border-border bg-muted/15">
+            <TabsTrigger value="login" className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: "var(--font-mono)" }}>
+              Sign In
+            </TabsTrigger>
+            <TabsTrigger value="register" className="text-[11px] uppercase tracking-[0.16em]" style={{ fontFamily: "var(--font-mono)" }}>
+              Create Account
+            </TabsTrigger>
           </TabsList>
-        </CardHeader>
-        
-        <CardContent className="pt-6">
+        </div>
+
+        <div className="p-4 sm:p-5">
           <TabsContent value="login" className="mt-0">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="login-email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="pl-9"
-                    value={loginForm.email}
-                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                    required
-                  />
-                </div>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="login-password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="Enter your password"
-                    className="pl-9"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    required
-                  />
-                </div>
+                <Input
+                  id="login-password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  required
+                />
               </div>
               <Button type="submit" className="w-full" disabled={isLoggingIn}>
                 {isLoggingIn ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Sign In
               </Button>
             </form>
-            
+
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+                <span className="w-full border-t border-border" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              <div className="relative flex justify-center">
+                <span
+                  className="bg-card px-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  Or continue with
+                </span>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
+              <Button type="button" variant="outline" className="w-full" onClick={() => handlePreviewProviderLogin("google")}>
                 <Chrome className="h-4 w-4 mr-2" />
                 Google
               </Button>
-              <Button variant="outline" className="w-full" onClick={handleGithubLogin}>
+              <Button type="button" variant="outline" className="w-full" onClick={() => handlePreviewProviderLogin("github")}>
                 <Github className="h-4 w-4 mr-2" />
                 GitHub
               </Button>
             </div>
           </TabsContent>
-          
+
           <TabsContent value="register" className="mt-0">
             <form onSubmit={handleRegister} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
@@ -162,96 +177,60 @@ export function AuthForms({ defaultTab = "login", onSuccess }: AuthFormsProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="handle">Username</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="handle"
-                    placeholder="johndoe"
-                    className="pl-9"
-                    value={registerForm.handle}
-                    onChange={(e) => setRegisterForm({ ...registerForm, handle: e.target.value })}
-                    required
-                    minLength={3}
-                    maxLength={30}
-                    pattern="[a-zA-Z0-9_-]+"
-                  />
-                </div>
+                <Input
+                  id="handle"
+                  placeholder="johndoe"
+                  value={registerForm.handle}
+                  onChange={(e) => setRegisterForm({ ...registerForm, handle: e.target.value })}
+                  required
+                  minLength={3}
+                  maxLength={30}
+                  pattern="[a-zA-Z0-9_-]+"
+                />
                 <p className="text-xs text-muted-foreground">Letters, numbers, underscores, hyphens only</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reg-email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="reg-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    className="pl-9"
-                    value={registerForm.email}
-                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                    required
-                  />
-                </div>
+                <Input
+                  id="reg-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={registerForm.email}
+                  onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reg-password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="reg-password"
-                    type="password"
-                    placeholder="Min 8 chars, upper, lower, number"
-                    className="pl-9"
-                    value={registerForm.password}
-                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                    required
-                    minLength={8}
-                  />
-                </div>
+                <Input
+                  id="reg-password"
+                  type="password"
+                  placeholder="Min 8 chars, upper, lower, number"
+                  value={registerForm.password}
+                  onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                  required
+                  minLength={8}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Repeat password"
-                    className="pl-9"
-                    value={registerForm.confirmPassword}
-                    onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
-                    required
-                  />
-                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Repeat password"
+                  value={registerForm.confirmPassword}
+                  onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                  required
+                />
               </div>
               <Button type="submit" className="w-full" disabled={isRegistering}>
                 {isRegistering ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Create Account
               </Button>
             </form>
-            
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
-                <Chrome className="h-4 w-4 mr-2" />
-                Google
-              </Button>
-              <Button variant="outline" className="w-full" onClick={handleGithubLogin}>
-                <Github className="h-4 w-4 mr-2" />
-                GitHub
-              </Button>
-            </div>
           </TabsContent>
-        </CardContent>
+        </div>
       </Tabs>
-    </Card>
+    </div>
   );
 }

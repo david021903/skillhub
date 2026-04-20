@@ -1,3 +1,4 @@
+import { Globe, Package, Terminal } from "@/components/ui/icons";
 import DocsLayout from "@/components/DocsLayout";
 
 export default function GettingStarted() {
@@ -7,8 +8,8 @@ export default function GettingStarted() {
       description="The open registry for OpenClaw AI agent skills"
     >
       <p>
-        <strong>SkillHub</strong> is the central registry for discovering, publishing, and installing 
-        AI agent skills built for the <strong>OpenClaw</strong> ecosystem. Think of it like npm or 
+        <strong>SkillHub</strong> is the central registry for discovering, publishing, and installing
+        AI agent skills built for the <strong>OpenClaw</strong> ecosystem. Think of it like npm or
         GitHub, but for AI agent capabilities.
       </p>
 
@@ -26,17 +27,22 @@ export default function GettingStarted() {
 
       <h2>How It Works</h2>
       <p>
-        Every skill on SkillHub is defined by a <code>SKILL.md</code> file — a simple Markdown 
-        document with YAML metadata at the top. This file tells agents what the skill does, what 
+        Every skill on SkillHub is defined by a <code>SKILL.md</code> file — a simple Markdown
+        document with YAML metadata at the top. This file tells agents what the skill does, what
         it requires, and provides the instructions the agent needs to use it.
       </p>
 
-      <div className="not-prose bg-muted/50 border rounded-lg p-4 my-6">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg">📦</span>
-          <span className="font-semibold text-sm">Example: A skill in 30 seconds</span>
+      <div className="not-prose my-6 border border-border bg-card/60 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Package className="h-4 w-4 text-primary" />
+          <span
+            className="text-[10px] uppercase tracking-[0.18em] text-primary"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            Example: A skill in 30 seconds
+          </span>
         </div>
-        <pre className="bg-[hsl(222,47%,8%)] text-gray-100 rounded-lg p-4 text-sm overflow-x-auto">
+        <pre className="overflow-x-auto border border-border bg-black p-4 text-sm text-gray-100">
 {`---
 name: web-scraper
 version: 1.0.0
@@ -55,21 +61,27 @@ You can scrape websites using curl and parse the HTML...`}
 
       <h2>Two Ways to Use SkillHub</h2>
 
-      <h3>🌐 Web Platform</h3>
+      <div className="not-prose mt-8 flex items-center gap-2">
+        <Globe className="h-4 w-4 text-primary" />
+        <h3 className="m-0 text-xl font-semibold text-foreground">Web Platform</h3>
+      </div>
       <p>
-        Visit <a href="https://skillhub.space">skillhub.space</a> to browse skills, read 
-        documentation, star your favorites, and publish new skills through the web interface. 
+        Visit <a href="https://skillhub.space">skillhub.space</a> to browse skills, read
+        documentation, star your favorites, and publish new skills through the web interface.
         No installation required.
       </p>
 
-      <h3>💻 Command Line (shsc)</h3>
+      <div className="not-prose mt-8 flex items-center gap-2">
+        <Terminal className="h-4 w-4 text-primary" />
+        <h3 className="m-0 text-xl font-semibold text-foreground">Command Line (shsc)</h3>
+      </div>
       <p>
-        For developers who prefer the terminal, the <code>shsc</code> CLI lets you search, 
+        For developers who prefer the terminal, the <code>shsc</code> CLI lets you search,
         install, publish, and validate skills directly from your command line.
       </p>
 
-      <div className="not-prose bg-muted/50 border rounded-lg p-4 my-6">
-        <pre className="bg-[hsl(222,47%,8%)] text-gray-100 rounded-lg p-4 text-sm overflow-x-auto">
+      <div className="not-prose my-6 border border-border bg-card/60 p-5">
+        <pre className="overflow-x-auto border border-border bg-black p-4 text-sm text-gray-100">
 {`# Install a skill
 shsc install skillhub/web-scraper
 
@@ -83,7 +95,7 @@ shsc publish`}
 
       <h2>What's Next?</h2>
       <p>
-        Ready to get started? Head to the <a href="/docs/quick-start">Quick Start</a> guide 
+        Ready to get started? Head to the <a href="/docs/quick-start">Quick Start</a> guide
         to create and publish your first skill in under 5 minutes.
       </p>
     </DocsLayout>

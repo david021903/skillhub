@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Key, Copy, Trash2, Plus, Terminal, AlertCircle } from "lucide-react";
+import { Key, Copy, Trash2, Plus, Terminal, AlertCircle } from "@/components/ui/icons";
 
 interface ApiToken {
   id: string;
@@ -52,7 +52,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       toast({ title: "Profile updated" });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });

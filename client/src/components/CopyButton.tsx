@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 
 interface CopyButtonProps {
@@ -26,13 +26,19 @@ export function CopyButton({ text, className = "", size = "icon" }: CopyButtonPr
       variant="ghost"
       size={size}
       onClick={handleCopy}
-      className={className}
+      className={[
+        "group/copy",
+        className,
+        copied
+          ? "border-primary/80 bg-primary text-primary-foreground hover:border-primary hover:bg-primary/92"
+          : "",
+      ].join(" ")}
       title={copied ? "Copied!" : "Copy to clipboard"}
     >
       {copied ? (
-        <Check className="h-4 w-4 text-green-500" />
+        <Check className="h-4 w-4 animate-in zoom-in-75 fade-in-0 duration-200" />
       ) : (
-        <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+        <Copy className="h-4 w-4 text-muted-foreground transition-[transform,color] duration-200 group-hover/copy:scale-[1.06] group-hover/copy:text-foreground" />
       )}
     </Button>
   );

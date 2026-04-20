@@ -1,8 +1,9 @@
-import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import type { ReactNode, KeyboardEvent } from "react";
+import { useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, Download, CheckCircle, Shield } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Download, Shield, Star } from "@/components/ui/icons";
+import { getSkillValidationBadgeClasses } from "@/lib/skill-validation";
 
 interface SkillCardProps {
   skill: {
@@ -23,96 +24,121 @@ interface SkillCardProps {
       profileImageUrl?: string | null;
     } | null;
   };
+  headerAction?: ReactNode;
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 90) return "text-green-500";
-  if (score >= 70) return "text-yellow-500";
-  if (score >= 50) return "text-orange-500";
-  return "text-red-500";
-}
-
-function getScoreBg(score: number): string {
-  if (score >= 90) return "bg-green-500/10";
-  if (score >= 70) return "bg-yellow-500/10";
-  if (score >= 50) return "bg-orange-500/10";
-  return "bg-red-500/10";
-}
-
-export default function SkillCard({ skill }: SkillCardProps) {
+export default function SkillCard({ skill, headerAction }: SkillCardProps) {
+  const [, setLocation] = useLocation();
   const ownerHandle = skill.owner?.handle || skill.owner?.id;
-  const isOfficial = skill.owner?.handle === "skillhub";
-  const ownerName = skill.owner?.firstName 
+  const href = `/skills/${ownerHandle}/${skill.slug}`;
+  const authorName = skill.owner?.firstName
     ? `${skill.owner.firstName} ${skill.owner.lastName || ""}`.trim()
-    : skill.owner?.handle || "Unknown";
-
-  const score = skill.validationScore;
+    : skill.owner?.handle
+      ? `@${skill.owner.handle}`
+      : "Unknown author";
+  const visibleTags = skill.tags?.slice(0, 3) || [];
+  const hiddenTagCount = Math.max(0, (skill.tags?.length || 0) - visibleTags.length);
+  const validationScore = skill.validationScore == null
+    ? null
+    : Math.max(0, Math.min(100, Math.round(skill.validationScore)));
+  const authorInitials = skill.owner?.firstName?.[0] || skill.owner?.handle?.[0]?.toUpperCase() || "U";
+  const handleOpen = () => setLocation(href);
+  const tagClassName =
+    "inline-flex items-center border border-primary/18 bg-black/20 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground";
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleOpen();
+    }
+  };
 
   return (
-    <Link href={`/skills/${ownerHandle}/${skill.slug}`}>
-      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <CardTitle className="text-lg flex items-center gap-2">
-                {skill.name}
-                {skill.isVerified && (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                )}
-              </CardTitle>
-              <CardDescription className="mt-1 line-clamp-2">
-                {skill.description || "No description provided"}
-              </CardDescription>
+    <Card
+      className="tc-panel-hover h-full cursor-pointer border-primary/10 bg-card/95 transition-colors"
+      role="link"
+      tabIndex={0}
+      onClick={handleOpen}
+      onKeyDown={handleCardKeyDown}
+    >
+      <CardContent className="flex h-full flex-col p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-lg text-foreground md:text-xl">
+              {skill.name}
+            </h3>
+            <p className="mt-2 line-clamp-2 max-w-[44ch] text-sm leading-6 text-muted-foreground">
+              {skill.description || "No description provided"}
+            </p>
+            <div className="mt-3 flex items-center gap-2.5 text-sm text-muted-foreground">
+              <Avatar className="h-6 w-6 shrink-0 border-0 bg-transparent">
+                <AvatarImage src={skill.owner?.profileImageUrl || undefined} alt={authorName} />
+                <AvatarFallback className="bg-primary/10 text-[11px] text-primary">
+                  {authorInitials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate">{authorName}</span>
             </div>
-            {score != null && (
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold shrink-0 ml-2 ${getScoreColor(score)} ${getScoreBg(score)}`}>
-                <Shield className="h-3 w-3" />
-                {score}%
-              </span>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            {!isOfficial && (
-              <div className="flex items-center gap-2">
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={skill.owner?.profileImageUrl || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {ownerName[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm text-muted-foreground">{ownerName}</span>
+            {visibleTags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {visibleTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={tagClassName}
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {hiddenTagCount > 0 && (
+                  <span className={tagClassName}>
+                    +{hiddenTagCount}
+                  </span>
+                )}
               </div>
             )}
-            {isOfficial && <div />}
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Star className="h-4 w-4" />
-                {skill.stars || 0}
-              </span>
-              <span className="flex items-center gap-1">
-                <Download className="h-4 w-4" />
-                {skill.downloads || 0}
-              </span>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <div className="flex min-h-[1.9rem] items-start justify-end">
+              {validationScore != null ? (
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${getSkillValidationBadgeClasses(validationScore)}`}
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  {validationScore}%
+                </span>
+              ) : skill.isVerified ? (
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${getSkillValidationBadgeClasses(100)}`}
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Verified
+                </span>
+              ) : null}
+            </div>
+            <div className="flex min-h-9 items-start justify-end">
+              {headerAction ? <div className="relative z-10 flex h-9 w-9 items-center justify-center">{headerAction}</div> : null}
             </div>
           </div>
-          {skill.tags && skill.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-3">
-              {skill.tags.slice(0, 3).map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-              {skill.tags.length > 3 && (
-                <Badge variant="secondary" className="text-xs">
-                  +{skill.tags.length - 3}
-                </Badge>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
+        </div>
+
+        <div className="mt-auto flex items-end justify-end pt-5">
+          <div
+            className="flex items-center gap-4 text-[11px] text-muted-foreground"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            <span className="inline-flex items-center gap-1.5 tabular-nums text-foreground/88">
+              <Star className="h-3.5 w-3.5 text-primary" />
+              {(skill.stars || 0).toLocaleString()}
+            </span>
+            <span className="inline-flex items-center gap-1.5 tabular-nums text-foreground/88">
+              <Download className="h-3.5 w-3.5 text-primary" />
+              {(skill.downloads || 0).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

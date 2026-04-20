@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Activity, Star, Upload, Eye, MessageSquare, GitBranch, Clock } from "lucide-react";
+import { Activity, Star, Upload, Eye, MessageSquare, GitBranch, Clock } from "@/components/ui/icons";
 import { formatDistanceToNow } from "date-fns";
 
 interface ActivityItem {
@@ -22,12 +22,12 @@ interface ActivityFeedProps {
 }
 
 const actionIcons: Record<string, React.ReactNode> = {
-  publish: <Upload className="h-4 w-4 text-green-500" />,
-  star: <Star className="h-4 w-4 text-yellow-500" />,
-  unstar: <Star className="h-4 w-4 text-muted-foreground" />,
-  view: <Eye className="h-4 w-4 text-blue-500" />,
-  comment: <MessageSquare className="h-4 w-4 text-purple-500" />,
-  fork: <GitBranch className="h-4 w-4 text-orange-500" />,
+  publish: <Upload className="h-4 w-4 text-primary/75" />,
+  star: <Star className="h-4 w-4 text-primary/75" />,
+  unstar: <Star className="h-4 w-4 text-primary/75" />,
+  view: <Eye className="h-4 w-4 text-primary/75" />,
+  comment: <MessageSquare className="h-4 w-4 text-primary/75" />,
+  fork: <GitBranch className="h-4 w-4 text-primary/75" />,
 };
 
 const actionDescriptions: Record<string, (details?: Record<string, any>) => string> = {
@@ -53,10 +53,10 @@ export function ActivityFeed({ skillId }: ActivityFeedProps) {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="border-border bg-card/40">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Activity className="h-5 w-5" />
+            <Activity className="h-5 w-5 text-primary/75" />
             Recent Activity
           </CardTitle>
         </CardHeader>
@@ -64,7 +64,7 @@ export function ActivityFeed({ skillId }: ActivityFeedProps) {
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-3 animate-pulse">
-                <div className="h-8 w-8 rounded-full bg-muted" />
+                <div className="h-8 w-8 bg-muted" />
                 <div className="flex-1">
                   <div className="h-4 bg-muted rounded w-3/4 mb-1" />
                   <div className="h-3 bg-muted rounded w-1/4" />
@@ -79,16 +79,16 @@ export function ActivityFeed({ skillId }: ActivityFeedProps) {
 
   if (!activities || activities.length === 0) {
     return (
-      <Card>
+      <Card className="border-border bg-card/40">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Activity className="h-5 w-5" />
+            <Activity className="h-5 w-5 text-primary/75" />
             Recent Activity
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-6 text-muted-foreground">
-            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <Clock className="h-8 w-8 mx-auto mb-2 text-primary/45" />
             <p className="text-sm">No recent activity</p>
           </div>
         </CardContent>
@@ -97,10 +97,10 @@ export function ActivityFeed({ skillId }: ActivityFeedProps) {
   }
 
   return (
-    <Card>
+    <Card className="border-border bg-card/40">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Activity className="h-5 w-5" />
+          <Activity className="h-5 w-5 text-primary/75" />
           Recent Activity
         </CardTitle>
       </CardHeader>
@@ -124,7 +124,9 @@ export function ActivityFeed({ skillId }: ActivityFeedProps) {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {icon}
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center border border-border/70 bg-background/55">
+                      {icon}
+                    </span>
                     <span className="text-sm">
                       <span className="font-medium">{userName}</span>{" "}
                       <span className="text-muted-foreground">{description}</span>

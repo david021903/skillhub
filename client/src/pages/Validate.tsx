@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageIntro } from "@/components/PageIntro";
 import { useToast } from "@/hooks/use-toast";
+import { usePageSeo } from "@/lib/seo";
 import { 
   CheckCircle2, 
   XCircle, 
@@ -14,7 +16,7 @@ import {
   Shield,
   Settings2,
   Layers
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 interface ValidationCheck {
@@ -71,6 +73,14 @@ export default function Validate() {
   const { toast } = useToast();
   const [skillMd, setSkillMd] = useState("");
   const [result, setResult] = useState<ValidationResult | null>(null);
+
+  usePageSeo({
+    title: "Validate SKILL.md",
+    description:
+      "Run validation checks against SKILL.md files to catch issues, improve quality, and review score details before publishing.",
+    canonicalPath: "/validate",
+    robots: "noindex,nofollow",
+  });
 
   const validateMutation = useMutation({
     mutationFn: async (content: string) => {
@@ -142,15 +152,11 @@ export default function Validate() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Sparkles className="h-8 w-8" />
-          Validate SKILL.md
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Check your skill for errors, security issues, and best practices before publishing
-        </p>
-      </div>
+      <PageIntro
+        tag="VALIDATE SKILL.MD"
+        title="Check Your Skill Before Publishing"
+        description="Run validation checks for structure, compatibility, and quality before shipping a new skill."
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

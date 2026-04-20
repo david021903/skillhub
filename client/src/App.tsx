@@ -1,59 +1,70 @@
-import { useState } from "react";
+import { Suspense, lazy, useState, type ComponentType } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { useAuth } from "./hooks/use-auth";
+import { CookieConsent } from "./components/CookieConsent";
+import { RouteLoader } from "./components/RouteLoader";
 import { Toaster } from "./components/ui/toaster";
-import { isDocsSubdomain, toCanonicalDocsPath } from "./components/DocsLayout";
+import { DocsLayoutProvider, isDocsSubdomain, toCanonicalDocsPath } from "./components/DocsLayout";
+import { usePageSeo } from "./lib/seo";
+import { cn } from "./lib/utils";
 import Header from "./components/Header";
 import Sidebar, { MobileMenuButton } from "./components/Sidebar";
 import { PublicLayout } from "./components/PublicLayout";
-import Landing from "./pages/Landing";
-import Home from "./pages/Home";
-import Browse from "./pages/Browse";
-import SkillDetail from "./pages/SkillDetail";
-import CreateSkill from "./pages/CreateSkill";
-import MySkills from "./pages/MySkills";
-import Profile from "./pages/Profile";
-import SettingsProfile from "./pages/SettingsProfile";
-import SettingsTokens from "./pages/SettingsTokens";
-import SettingsAppearance from "./pages/SettingsAppearance";
-import SettingsAI from "./pages/SettingsAI";
-import Starred from "./pages/Starred";
-import Validate from "./pages/Validate";
-import AIGenerator from "./pages/AIGenerator";
-import AdminDashboard from "./pages/AdminDashboard";
 
-import DocsGettingStarted from "./pages/docs/GettingStarted";
-import DocsQuickStart from "./pages/docs/QuickStart";
-import DocsAccount from "./pages/docs/Account";
-import DocsSkillFormat from "./pages/docs/SkillFormat";
-import DocsSkillFormatFrontmatter from "./pages/docs/SkillFormatFrontmatter";
-import DocsSkillFormatBody from "./pages/docs/SkillFormatBody";
-import DocsSkillFormatExamples from "./pages/docs/SkillFormatExamples";
-import DocsPlatform from "./pages/docs/Platform";
-import DocsPlatformPublishing from "./pages/docs/PlatformPublishing";
-import DocsPlatformVersions from "./pages/docs/PlatformVersions";
-import DocsPlatformCollaboration from "./pages/docs/PlatformCollaboration";
-import DocsPlatformForking from "./pages/docs/PlatformForking";
-import DocsCLI from "./pages/docs/CLI";
-import DocsCLIAuth from "./pages/docs/CLIAuth";
-import DocsCLIPublishInstall from "./pages/docs/CLIPublishInstall";
-import DocsCLISearch from "./pages/docs/CLISearch";
-import DocsCLIValidation from "./pages/docs/CLIValidation";
-import DocsCLITemplates from "./pages/docs/CLITemplates";
-import DocsCLIDependencies from "./pages/docs/CLIDependencies";
-import DocsValidation from "./pages/docs/Validation";
-import DocsValidationCriteria from "./pages/docs/ValidationCriteria";
-import DocsValidationImproving from "./pages/docs/ValidationImproving";
-import DocsAI from "./pages/docs/AI";
-import DocsAIExplainer from "./pages/docs/AIExplainer";
-import DocsAIGenerator from "./pages/docs/AIGenerator";
-import DocsAIChat from "./pages/docs/AIChat";
-import DocsTokens from "./pages/docs/Tokens";
-import DocsTokensCreating from "./pages/docs/TokensCreating";
-import DocsTokensScopes from "./pages/docs/TokensScopes";
-import DocsTokensCLIUsage from "./pages/docs/TokensCLIUsage";
+const Landing = lazy(() => import("./pages/Landing"));
+const Home = lazy(() => import("./pages/Home"));
+const Browse = lazy(() => import("./pages/Browse"));
+const SkillDetail = lazy(() => import("./pages/SkillDetail"));
+const Terms = lazy(() => import("./pages/Terms"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const CreateSkill = lazy(() => import("./pages/CreateSkill"));
+const MySkills = lazy(() => import("./pages/MySkills"));
+const Profile = lazy(() => import("./pages/Profile"));
+const SettingsProfile = lazy(() => import("./pages/SettingsProfile"));
+const SettingsTokens = lazy(() => import("./pages/SettingsTokens"));
+const SettingsAppearance = lazy(() => import("./pages/SettingsAppearance"));
+const SettingsAI = lazy(() => import("./pages/SettingsAI"));
+const Starred = lazy(() => import("./pages/Starred"));
+const Validate = lazy(() => import("./pages/Validate"));
+const AIGenerator = lazy(() => import("./pages/AIGenerator"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
-const docsRouteMap: Record<string, React.ComponentType> = {
+const DocsGettingStarted = lazy(() => import("./pages/docs/GettingStarted"));
+const DocsNotFound = lazy(() => import("./pages/docs/NotFound"));
+const DocsQuickStart = lazy(() => import("./pages/docs/QuickStart"));
+const DocsAccount = lazy(() => import("./pages/docs/Account"));
+const DocsSkillFormat = lazy(() => import("./pages/docs/SkillFormat"));
+const DocsSkillFormatFrontmatter = lazy(() => import("./pages/docs/SkillFormatFrontmatter"));
+const DocsSkillFormatBody = lazy(() => import("./pages/docs/SkillFormatBody"));
+const DocsSkillFormatExamples = lazy(() => import("./pages/docs/SkillFormatExamples"));
+const DocsPlatform = lazy(() => import("./pages/docs/Platform"));
+const DocsPlatformPublishing = lazy(() => import("./pages/docs/PlatformPublishing"));
+const DocsPlatformVersions = lazy(() => import("./pages/docs/PlatformVersions"));
+const DocsPlatformCollaboration = lazy(() => import("./pages/docs/PlatformCollaboration"));
+const DocsPlatformForking = lazy(() => import("./pages/docs/PlatformForking"));
+const DocsCLI = lazy(() => import("./pages/docs/CLI"));
+const DocsCLIAuth = lazy(() => import("./pages/docs/CLIAuth"));
+const DocsCLIPublishInstall = lazy(() => import("./pages/docs/CLIPublishInstall"));
+const DocsCLISearch = lazy(() => import("./pages/docs/CLISearch"));
+const DocsCLIValidation = lazy(() => import("./pages/docs/CLIValidation"));
+const DocsCLITemplates = lazy(() => import("./pages/docs/CLITemplates"));
+const DocsCLIDependencies = lazy(() => import("./pages/docs/CLIDependencies"));
+const DocsValidation = lazy(() => import("./pages/docs/Validation"));
+const DocsValidationCriteria = lazy(() => import("./pages/docs/ValidationCriteria"));
+const DocsValidationImproving = lazy(() => import("./pages/docs/ValidationImproving"));
+const DocsAI = lazy(() => import("./pages/docs/AI"));
+const DocsAIExplainer = lazy(() => import("./pages/docs/AIExplainer"));
+const DocsAIGenerator = lazy(() => import("./pages/docs/AIGenerator"));
+const DocsAIChat = lazy(() => import("./pages/docs/AIChat"));
+const DocsTokens = lazy(() => import("./pages/docs/Tokens"));
+const DocsTokensCreating = lazy(() => import("./pages/docs/TokensCreating"));
+const DocsTokensScopes = lazy(() => import("./pages/docs/TokensScopes"));
+const DocsTokensCLIUsage = lazy(() => import("./pages/docs/TokensCLIUsage"));
+
+type LazyRouteComponent = ComponentType<any>;
+
+const docsRouteMap: Record<string, LazyRouteComponent> = {
   "/docs": DocsGettingStarted,
   "/docs/quick-start": DocsQuickStart,
   "/docs/account": DocsAccount,
@@ -89,8 +100,21 @@ const docsRouteMap: Record<string, React.ComponentType> = {
 function DocsRouter() {
   const [location] = useLocation();
   const canonicalPath = toCanonicalDocsPath(location);
-  const Component = docsRouteMap[canonicalPath] || DocsGettingStarted;
+  const Component = docsRouteMap[canonicalPath] ?? DocsNotFound;
   return <Component />;
+}
+
+function RouteSeo(props: Parameters<typeof usePageSeo>[0]) {
+  usePageSeo(props);
+  return null;
+}
+
+function PublicRouteFallback({ label = "Loading TraderClaw Skills" }: { label?: string }) {
+  return (
+    <PublicLayout>
+      <RouteLoader label={label} />
+    </PublicLayout>
+  );
 }
 
 function App() {
@@ -98,108 +122,159 @@ function App() {
   const [location] = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const routeKey = isDocsSubdomain ? toCanonicalDocsPath(location) : location.split("?")[0] || "/";
+  const isDocsRoute = isDocsSubdomain || location === "/docs" || location.startsWith("/docs/");
+  const isLegalRoute =
+    location === "/terms" ||
+    location === "/terms-and-conditions" ||
+    location === "/privacy" ||
+    location === "/privacy-policy";
+
+  let content;
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    content = <RouteLoader fullscreen label="Loading TraderClaw Skills" />;
+  } else if (isDocsRoute) {
+    content = (
+      <Suspense fallback={<RouteLoader fullscreen label="Loading Skills Docs" />}>
+        <DocsLayoutProvider>
+          <DocsRouter />
+        </DocsLayoutProvider>
+      </Suspense>
+    );
+  } else if (isLegalRoute) {
+    content = (
+      <Suspense fallback={<PublicRouteFallback label="Loading legal page" />}>
+        <div key={routeKey} className="tc-page-stage">
+          <Switch>
+            <Route path="/terms">
+              <PublicLayout><Terms /></PublicLayout>
+            </Route>
+            <Route path="/terms-and-conditions">
+              <PublicLayout><Terms /></PublicLayout>
+            </Route>
+            <Route path="/privacy">
+              <PublicLayout><Privacy /></PublicLayout>
+            </Route>
+            <Route path="/privacy-policy">
+              <PublicLayout><Privacy /></PublicLayout>
+            </Route>
+          </Switch>
+        </div>
+      </Suspense>
+    );
+  } else if (!user) {
+    content = (
+      <Suspense fallback={<PublicRouteFallback />}>
+        <div key={routeKey} className="tc-page-stage">
+          <Switch>
+            <Route path="/">
+              <Landing />
+            </Route>
+            <Route path="/browse">
+              <PublicLayout><Browse /></PublicLayout>
+            </Route>
+            <Route path="/skills/:owner/:slug">
+              <PublicLayout><SkillDetail /></PublicLayout>
+            </Route>
+            <Route path="/skills/:owner">
+              <PublicLayout><Profile /></PublicLayout>
+            </Route>
+            <Route path="/users/:handle">
+              <PublicLayout><Profile /></PublicLayout>
+            </Route>
+            <Route path="/u/:handle">
+              <PublicLayout><Profile /></PublicLayout>
+            </Route>
+            <Route>
+              <PublicLayout><NotFound /></PublicLayout>
+            </Route>
+          </Switch>
+        </div>
+      </Suspense>
+    );
+  } else {
+    content = (
+      <div className="h-screen overflow-hidden bg-background">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
+        />
+        <div
+          className={cn(
+            "flex h-screen min-w-0 flex-col transition-[padding-left] duration-300 ease-out",
+            sidebarCollapsed ? "lg:pl-20" : "lg:pl-[18rem]",
+          )}
+        >
+          <Header
+            mobileMenuOpen={mobileMenuOpen}
+            mobileMenuButton={
+              <MobileMenuButton
+                open={mobileMenuOpen}
+                onClick={() => setMobileMenuOpen((current) => !current)}
+              />
+            }
+          />
+          <main className="flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-5 md:px-6 lg:px-8 lg:py-6 xl:py-8">
+              <Suspense fallback={<RouteLoader label="Loading workspace" />}>
+                <div key={routeKey} className="tc-page-stage">
+                  <Switch>
+                    <Route path="/" component={Home} />
+                    <Route path="/browse" component={Browse} />
+                    <Route path="/skills/:owner/:slug" component={SkillDetail} />
+                    <Route path="/skills/:owner" component={Profile} />
+                    <Route path="/new" component={CreateSkill} />
+                    <Route path="/my-skills" component={MySkills} />
+                    <Route path="/starred" component={Starred} />
+                    <Route path="/validate" component={Validate} />
+                    <Route path="/profile" component={Profile} />
+                    <Route path="/settings" component={SettingsProfile} />
+                    <Route path="/settings/tokens" component={SettingsTokens} />
+                    <Route path="/settings/appearance" component={SettingsAppearance} />
+                    <Route path="/settings/ai" component={SettingsAI} />
+                    <Route path="/generate" component={AIGenerator} />
+                    <Route path="/admin">
+                      {(user as any)?.isAdmin ? (
+                        <AdminDashboard />
+                      ) : (
+                        <>
+                          <RouteSeo
+                            title="Access Denied"
+                            description="This TraderClaw Skills page is restricted and is not available for indexing."
+                            canonicalPath="/admin"
+                            robots="noindex,nofollow"
+                          />
+                          <div className="py-20 text-center">
+                            <h1 className="text-2xl font-bold">Access Denied</h1>
+                            <p className="mt-2 text-muted-foreground">You don&apos;t have permission to view this page.</p>
+                          </div>
+                        </>
+                      )}
+                    </Route>
+                    <Route path="/users/:handle" component={Profile} />
+                    <Route path="/u/:handle" component={Profile} />
+                    <Route>
+                      <NotFound />
+                    </Route>
+                  </Switch>
+                </div>
+              </Suspense>
+            </div>
+          </main>
+        </div>
       </div>
-    );
-  }
-
-  if (isDocsSubdomain || location === "/docs" || location.startsWith("/docs/")) {
-    return (
-      <>
-        <DocsRouter />
-        <Toaster />
-      </>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <Switch>
-          <Route path="/browse">
-            <PublicLayout><Browse /></PublicLayout>
-          </Route>
-          <Route path="/skills/:owner/:slug">
-            {(params) => <PublicLayout><SkillDetail /></PublicLayout>}
-          </Route>
-          <Route path="/skills/:owner">
-            {(params) => <PublicLayout><Profile /></PublicLayout>}
-          </Route>
-          <Route path="/users/:handle">
-            {(params) => <PublicLayout><Profile /></PublicLayout>}
-          </Route>
-          <Route path="/u/:handle">
-            {(params) => <PublicLayout><Profile /></PublicLayout>}
-          </Route>
-          <Route component={Landing} />
-        </Switch>
-        <Toaster />
-      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        mobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
-      <div className="flex-1 flex flex-col min-h-screen">
-        <Header 
-          mobileMenuButton={
-            <MobileMenuButton onClick={() => setMobileMenuOpen(true)} />
-          }
-        />
-        <main className="flex-1 container mx-auto px-4 py-8">
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/browse" component={Browse} />
-            <Route path="/skills/:owner/:slug" component={SkillDetail} />
-            <Route path="/skills/:owner" component={Profile} />
-            <Route path="/new" component={CreateSkill} />
-            <Route path="/my-skills" component={MySkills} />
-            <Route path="/starred" component={Starred} />
-            <Route path="/validate" component={Validate} />
-            <Route path="/profile" component={Profile} />
-            <Route path="/settings" component={SettingsProfile} />
-            <Route path="/settings/tokens" component={SettingsTokens} />
-            <Route path="/settings/appearance" component={SettingsAppearance} />
-            <Route path="/settings/ai" component={SettingsAI} />
-            <Route path="/generate" component={AIGenerator} />
-            <Route path="/admin">
-              {(user as any)?.isAdmin ? <AdminDashboard /> : (
-                <div className="text-center py-20">
-                  <h1 className="text-2xl font-bold">Access Denied</h1>
-                  <p className="text-muted-foreground mt-2">You don't have permission to view this page.</p>
-                </div>
-              )}
-            </Route>
-            <Route path="/users/:handle" component={Profile} />
-            <Route path="/u/:handle" component={Profile} />
-            <Route>
-              <div className="text-center py-20">
-                <h1 className="text-2xl font-bold">404 - Not Found</h1>
-              </div>
-            </Route>
-          </Switch>
-        </main>
-        <footer className="border-t bg-muted/30 py-8 mt-auto">
-          <div className="container px-4 text-center text-sm text-muted-foreground flex items-center justify-center gap-3">
-            <p>&copy; 2026 SkillHub. All rights reserved. Created by 0BL1V1ON AI</p>
-            <a href="https://x.com/skillhubspace" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/60 hover:text-foreground transition-colors" aria-label="Follow us on X">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            </a>
-          </div>
-        </footer>
-      </div>
+    <>
+      {content}
+      {!isLoading ? <CookieConsent /> : null}
       <Toaster />
-    </div>
+    </>
   );
 }
 

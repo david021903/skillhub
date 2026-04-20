@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { PageIntro } from "@/components/PageIntro";
 import { cn } from "@/lib/utils";
-import { User, Key, Palette, Sparkles } from "lucide-react";
+import { User, Key, Sparkles } from "@/components/ui/icons";
 
 interface SettingsLayoutProps {
   children: ReactNode;
@@ -10,47 +11,68 @@ interface SettingsLayoutProps {
 const settingsNav = [
   { href: "/settings", label: "Profile", icon: User },
   { href: "/settings/tokens", label: "API Tokens", icon: Key },
-  { href: "/settings/appearance", label: "Appearance", icon: Palette },
   { href: "/settings/ai", label: "AI Features", icon: Sparkles },
 ];
 
+const settingsPageCopy: Record<string, { tag: string; title: string; description: string }> = {
+  "/settings": {
+    tag: "PROFILE SETTINGS",
+    title: "Manage Your Profile",
+    description: "Update your public identity, username, and account details for the TraderClaw registry.",
+  },
+  "/settings/tokens": {
+    tag: "API TOKENS",
+    title: "Manage API Tokens",
+    description: "Create and control the tokens you use with the CLI and your automated workflows.",
+  },
+  "/settings/ai": {
+    tag: "AI FEATURES",
+    title: "Configure AI Tools",
+    description: "Set up AI-powered generation, explanation, and chat features for your workflow.",
+  },
+};
+
 export default function SettingsLayout({ children }: SettingsLayoutProps) {
   const [location] = useLocation();
+  const pageCopy = settingsPageCopy[location] || settingsPageCopy["/settings"];
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto max-w-5xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
+        <PageIntro
+          tag={pageCopy.tag}
+          title={pageCopy.title}
+          description={pageCopy.description}
+        />
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        <nav className="md:w-48 flex-shrink-0">
-          <ul className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0">
-            {settingsNav.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.href;
-              return (
-                <li key={item.href}>
+      <div className="space-y-6">
+        <nav className="overflow-x-auto">
+          <div className="inline-flex min-w-full justify-start sm:min-w-0">
+            <div className="inline-flex w-max min-w-full items-center gap-1 border border-border/70 bg-card/60 p-1 text-muted-foreground backdrop-blur-sm sm:min-w-0">
+              {settingsNav.map((item) => {
+                const Icon = item.icon;
+                const isActive = location === item.href;
+                return (
                   <Link
+                    key={item.href}
                     href={item.href}
+                    data-state={isActive ? "active" : "inactive"}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      "tab-trigger relative inline-flex min-h-9 min-w-fit items-center justify-center gap-2 whitespace-nowrap rounded-none border border-transparent px-3 py-1.5 text-[0.84rem] font-medium tracking-[0.02em] ring-offset-background",
+                      isActive ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
                     <Icon className="h-4 w-4" />
                     {item.label}
                   </Link>
-                </li>
-              );
-            })}
-          </ul>
+                );
+              })}
+            </div>
+          </div>
         </nav>
 
-        <div className="flex-1 min-w-0">{children}</div>
+        <div className="min-w-0">{children}</div>
       </div>
     </div>
   );

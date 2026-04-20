@@ -15,7 +15,7 @@ import {
   Folder,
   FileArchive,
   AlertCircle 
-} from "lucide-react";
+} from "@/components/ui/icons";
 
 interface UploadedFile {
   path: string;

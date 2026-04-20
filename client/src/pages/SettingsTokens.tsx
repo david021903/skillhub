@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Key, Copy, Trash2, Plus, Terminal, AlertCircle } from "lucide-react";
+import { Copy, Trash2, Plus, AlertCircle } from "@/components/ui/icons";
 import SettingsLayout from "@/components/SettingsLayout";
+import { usePageSeo } from "@/lib/seo";
 
 interface ApiToken {
   id: string;
@@ -22,6 +23,16 @@ export default function SettingsTokens() {
 
   const [tokenName, setTokenName] = useState("");
   const [newToken, setNewToken] = useState<string | null>(null);
+  const cliInstallCommand = "npm install -g tcs";
+  const cliAuthCommand = "tcs auth login --token YOUR_TOKEN";
+
+  usePageSeo({
+    title: "API Tokens",
+    description:
+      "Create, copy, and revoke TraderClaw Skills API tokens for CLI authentication and automated workflows.",
+    canonicalPath: "/settings/tokens",
+    robots: "noindex,nofollow",
+  });
 
   const { data: tokens = [], isLoading: tokensLoading } = useQuery({
     queryKey: ["/api/tokens"],
@@ -79,36 +90,58 @@ export default function SettingsTokens() {
     }
   };
 
+  const copyCliCommands = async () => {
+    try {
+      await navigator.clipboard.writeText(`${cliInstallCommand}\n${cliAuthCommand}`);
+      toast({ title: "Copied!", description: "CLI commands copied to clipboard" });
+    } catch (error) {
+      toast({ title: "Copy failed", description: "Unable to copy the CLI commands.", variant: "destructive" });
+    }
+  };
+
   return (
     <SettingsLayout>
-      <Card>
+      <Card className="border-border/80 bg-card/70">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            API Tokens
-          </CardTitle>
+          <CardTitle>API Tokens</CardTitle>
           <CardDescription>
-            Create tokens to authenticate with the SkillHub CLI
+            Create tokens to authenticate with the TraderClaw CLI.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Terminal className="h-4 w-4" />
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <div
+              className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
               CLI Installation
             </div>
-            <code className="text-sm block">npm install -g shsc</code>
-            <code className="text-sm block text-muted-foreground">shsc auth login --token YOUR_TOKEN</code>
+            <div className="tc-docs-terminal not-prose">
+              <div className="tc-docs-terminal-bar">
+                <span className="tc-docs-terminal-label">Terminal</span>
+                <button
+                  type="button"
+                  onClick={copyCliCommands}
+                  className="tc-docs-terminal-copy inline-flex items-center gap-2"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy
+                </button>
+              </div>
+              <pre>
+                <code>{`${cliInstallCommand}\n${cliAuthCommand}`}</code>
+              </pre>
+            </div>
           </div>
 
           {newToken && (
-            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium">
+            <div className="border border-profit/20 bg-profit/8 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-profit font-medium">
                 <AlertCircle className="h-4 w-4" />
-                New token created - copy it now!
+                New token created. Copy it now.
               </div>
               <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm bg-white dark:bg-black p-2 rounded border font-mono break-all">
+                <code className="flex-1 border border-profit/16 bg-background/80 p-2 text-sm font-mono break-all text-foreground">
                   {newToken}
                 </code>
                 <Button size="icon" variant="outline" onClick={copyToken}>
@@ -121,16 +154,17 @@ export default function SettingsTokens() {
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder="Token name (e.g., My Laptop)"
               value={tokenName}
               onChange={(e) => setTokenName(e.target.value)}
+              className="sm:flex-1"
             />
             <Button
               onClick={() => createToken.mutate()}
               disabled={!tokenName || createToken.isPending}
-              className="gap-2"
+              className="gap-2 sm:min-w-[132px]"
             >
               <Plus className="h-4 w-4" />
               Create
@@ -140,30 +174,77 @@ export default function SettingsTokens() {
           {tokensLoading ? (
             <div className="animate-pulse space-y-2">
               {[1, 2].map((i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
+                <div key={i} className="h-16 border border-border/70 bg-muted/30"></div>
               ))}
             </div>
           ) : tokens.length > 0 ? (
-            <div className="space-y-2">
-              {tokens.map((token: ApiToken) => (
-                <div key={token.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium">{token.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Created {new Date(token.createdAt).toLocaleDateString()}
-                      {token.lastUsedAt && ` · Last used ${new Date(token.lastUsedAt).toLocaleDateString()}`}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => revokeToken.mutate(token.id)}
-                    disabled={revokeToken.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+            <div className="overflow-x-auto border border-border/80 bg-card/40">
+              <table className="w-full min-w-[640px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-border/80">
+                    <th
+                      className="px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                      Name
+                    </th>
+                    <th
+                      className="px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                      Created
+                    </th>
+                    <th
+                      className="px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                      Last Used
+                    </th>
+                    <th
+                      className="px-4 py-3 text-right text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                      Delete
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tokens.map((token: ApiToken) => (
+                    <tr key={token.id} className="border-b border-border/70 last:border-b-0">
+                      <td className="px-4 py-3.5 align-middle">
+                        <div className="text-sm text-foreground">{token.name}</div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle text-sm text-muted-foreground">
+                        {new Date(token.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-4 py-3.5 align-middle text-sm text-muted-foreground">
+                        {token.lastUsedAt
+                          ? new Date(token.lastUsedAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : "Never"}
+                      </td>
+                      <td className="px-4 py-3.5 text-right align-middle">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => revokeToken.mutate(token.id)}
+                          disabled={revokeToken.isPending}
+                          className="ml-auto"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">

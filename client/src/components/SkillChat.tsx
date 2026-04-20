@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, Send, Loader2, Bot, User, Key } from "lucide-react";
+import { MessageCircle, Send, Loader2, Bot, User, Key } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 
@@ -118,12 +118,9 @@ export function SkillChat({ skillMd, skillName = "this skill" }: SkillChatProps)
   };
 
   return (
-    <Card className="flex flex-col h-[500px]">
+    <Card className="flex flex-col h-[500px] border-border bg-card/40">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <MessageCircle className="h-5 w-5 text-primary" />
-          Ask about {skillName}
-        </CardTitle>
+        <CardTitle className="text-lg">Ask about {skillName}</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col min-h-0">
         <ScrollArea ref={scrollRef} className="flex-1 pr-4 mb-4">
@@ -147,7 +144,7 @@ export function SkillChat({ skillMd, skillName = "this skill" }: SkillChatProps)
                 >
                   <div
                     className={cn(
-                      "p-2 rounded-full shrink-0",
+                      "shrink-0 border border-border p-2",
                       msg.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
@@ -173,7 +170,7 @@ export function SkillChat({ skillMd, skillName = "this skill" }: SkillChatProps)
               ))}
               {isStreaming && messages[messages.length - 1]?.content === "" && (
                 <div className="flex gap-3">
-                  <div className="p-2 rounded-full bg-muted shrink-0">
+                  <div className="shrink-0 border border-border bg-muted p-2">
                     <Bot className="h-4 w-4" />
                   </div>
                   <div className="rounded-lg px-4 py-2 bg-muted">

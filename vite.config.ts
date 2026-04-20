@@ -14,6 +14,27 @@ export default defineConfig({
   build: {
     outDir: "../dist/public",
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("/node_modules/@tanstack/react-query/")) {
+              return "query";
+            }
+
+            if (id.includes("/node_modules/@radix-ui/")) {
+              return "radix";
+            }
+
+            return "vendor";
+          }
+
+          if (id.includes("/client/src/pages/docs/")) {
+            return "docs";
+          }
+        },
+      },
+    },
   },
   server: {
     allowedHosts: true,

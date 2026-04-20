@@ -68,6 +68,55 @@ function requireScope(scope: string) {
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+function normalizeSkillText(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function excerptFromSkillMarkdown(markdown: string, maxLength = 240): string {
+  const cleaned = normalizeSkillText(
+    markdown
+      .replace(/^---\n[\s\S]*?\n---\n?/m, " ")
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]*)`/g, "$1")
+      .replace(/!\[[^\]]*]\([^)]+\)/g, " ")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^>\s+/gm, "")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\d+\.\s+/gm, "")
+      .replace(/\|/g, " "),
+  );
+
+  if (!cleaned) {
+    return "";
+  }
+
+  if (cleaned.length <= maxLength) {
+    return cleaned;
+  }
+
+  return `${cleaned.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function deriveSkillMetadata(
+  manifest: Record<string, any>,
+  skillMd: string,
+  currentName?: string | null,
+  currentDescription?: string | null,
+) {
+  const name =
+    normalizeSkillText(manifest.name) ||
+    normalizeSkillText(currentName) ||
+    "";
+
+  const description =
+    normalizeSkillText(manifest.description) ||
+    normalizeSkillText(currentDescription) ||
+    excerptFromSkillMarkdown(skillMd);
+
+  return { name, description };
+}
+
 async function logActivity(skillId: string, userId: string | null, action: string, details?: Record<string, any>) {
   try {
     await supabase.from('skill_activities').insert({
@@ -95,6 +144,10 @@ export function registerRoutes(app: Express) {
 
       if (search) {
         query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+      }
+
+      if (tag) {
+        query = query.contains('tags', [tag]);
       }
 
       if (verified === "true") {
@@ -777,6 +830,7 @@ export function registerRoutes(app: Express) {
 
       const parsed = matter(skillMd);
       const manifest = parsed.data as Record<string, any>;
+      const metadata = deriveSkillMetadata(manifest, skillMd, skill.name, skill.description);
 
       await supabase
         .from('skill_versions')
@@ -797,10 +851,22 @@ export function registerRoutes(app: Express) {
         .select()
         .single();
 
-      if (manifest.name) {
+      if (metadata.name || metadata.description) {
+        const updatePayload: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+
+        if (metadata.name) {
+          updatePayload.name = metadata.name;
+        }
+
+        if (metadata.description) {
+          updatePayload.description = metadata.description;
+        }
+
         await supabase
           .from('skills')
-          .update({ name: manifest.name, description: manifest.description, updated_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq('id', skillId);
       }
 
@@ -1382,13 +1448,14 @@ export function registerRoutes(app: Express) {
       if (!skill) {
         const parsed = matter(skillMd);
         const manifest = parsed.data as Record<string, any>;
+        const metadata = deriveSkillMetadata(manifest, skillMd, slug, "");
         const { data: newSkill } = await supabase
           .from('skills')
           .insert({
             owner_id: user.id,
-            name: manifest.name || slug,
+            name: metadata.name || slug,
             slug,
-            description: manifest.description || "",
+            description: metadata.description || "",
             is_public: true,
             tags: manifest.tags || [],
           })
@@ -1414,6 +1481,7 @@ export function registerRoutes(app: Express) {
 
       const parsed = matter(skillMd);
       const manifest = parsed.data as Record<string, any>;
+      const metadata = deriveSkillMetadata(manifest, skillMd, skill.name, skill.description);
 
       await supabase
         .from('skill_versions')
@@ -1434,10 +1502,22 @@ export function registerRoutes(app: Express) {
         .select()
         .single();
 
-      if (manifest.name) {
+      if (metadata.name || metadata.description) {
+        const updatePayload: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+
+        if (metadata.name) {
+          updatePayload.name = metadata.name;
+        }
+
+        if (metadata.description) {
+          updatePayload.description = metadata.description;
+        }
+
         await supabase
           .from('skills')
-          .update({ name: manifest.name, description: manifest.description, updated_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq('id', skill.id);
       }
 
